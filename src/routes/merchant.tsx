@@ -46,7 +46,7 @@ function MerchantLayout() {
           {NAV.map((item) => {
             const active = item.exact
               ? pathname === item.to
-              : pathname.startsWith(item.to) && item.to !== "/merchant";
+              : pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
               <Link
@@ -75,7 +75,7 @@ function MerchantLayout() {
         {NAV.map((item) => {
           const active = item.exact
             ? pathname === item.to
-            : pathname.startsWith(item.to) && item.to !== "/merchant";
+            : pathname.startsWith(item.to);
           return (
             <Link
               key={item.to}
