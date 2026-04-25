@@ -22,6 +22,7 @@ export type Offer = {
   gradient: string; // tailwind classes
   accent: string; // tailwind text color
   emoji: string;
+  bonusItem?: string; // optional add-on for "Bonus" spin outcome
 };
 
 export const SCENARIOS: Scenario[] = [
@@ -33,7 +34,7 @@ export const SCENARIOS: Scenario[] = [
     emoji: "🌧️",
     offers: [
       {
-        id: "cold-rain-1",
+        id: "cold-rain-1", bonusItem: "free oat-milk shot",
         merchant: "Café Königsbau",
         category: "Café · Specialty Coffee",
         distanceM: 80,
@@ -49,7 +50,7 @@ export const SCENARIOS: Scenario[] = [
         emoji: "☕",
       },
       {
-        id: "cold-rain-2",
+        id: "cold-rain-2", bonusItem: "free Apfelschorle",
         merchant: "Maultaschen Manufaktur",
         category: "Schwäbisch · Comfort food",
         distanceM: 220,
@@ -74,7 +75,7 @@ export const SCENARIOS: Scenario[] = [
     emoji: "☀️",
     offers: [
       {
-        id: "sunny-1",
+        id: "sunny-1", bonusItem: "free pretzel side",
         merchant: "Biergarten am Schlossplatz",
         category: "Biergarten · Outdoor",
         distanceM: 140,
@@ -90,7 +91,7 @@ export const SCENARIOS: Scenario[] = [
         emoji: "🍺",
       },
       {
-        id: "sunny-2",
+        id: "sunny-2", bonusItem: "extra scoop",
         merchant: "Eiscafé Pinguin",
         category: "Gelato · Hand-made",
         distanceM: 60,
@@ -115,7 +116,7 @@ export const SCENARIOS: Scenario[] = [
     emoji: "🌙",
     offers: [
       {
-        id: "evening-1",
+        id: "evening-1", bonusItem: "free olive plate",
         merchant: "Weinstube Fröhlich",
         category: "Weinstube · Local",
         distanceM: 310,
@@ -131,7 +132,7 @@ export const SCENARIOS: Scenario[] = [
         emoji: "🍷",
       },
       {
-        id: "evening-2",
+        id: "evening-2", bonusItem: "+1 free pretzel",
         merchant: "Brezel Bub",
         category: "Bakery · Late hours",
         distanceM: 95,
@@ -156,7 +157,7 @@ export const SCENARIOS: Scenario[] = [
     emoji: "🥗",
     offers: [
       {
-        id: "lunch-1",
+        id: "lunch-1", bonusItem: "free kombucha",
         merchant: "Bowls & Bites",
         category: "Healthy · Order ahead",
         distanceM: 180,
@@ -172,7 +173,7 @@ export const SCENARIOS: Scenario[] = [
         emoji: "🥗",
       },
       {
-        id: "lunch-2",
+        id: "lunch-2", bonusItem: "free ayran",
         merchant: "Döner Palast",
         category: "Street food · Quick",
         distanceM: 240,

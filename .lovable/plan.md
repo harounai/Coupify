@@ -1,119 +1,83 @@
-# Generative City-Wallet — MVP Plan
+## Lucky Spin — overview
 
-A polished, demo-ready React app with two views toggled from a top nav: a simulated mobile **Consumer Wallet** and a full-screen **Merchant Dashboard**. All state in-memory, offers hardcoded per scenario, set in Stuttgart.
+After accepting an offer, instead of jumping straight to the QR code, the user lands on a new **Lucky Spin** screen. They see a beautiful spinning roulette wheel with what *appears* to be a 50/50 split between two outcomes: **"Double or Nothing"** vs **"Safe Reward"**. In reality, the wheel is segmented and weighted so the result is engineered, not fair — and behind the "Safe Reward" side multiple sub-outcomes can pop (time extension, bonus item, normal coupon, etc.).
 
-## Visual direction
+The goal is engagement, surprise, and a more premium, playful UI.
 
-Light, airy, Apple-Wallet inspired.
-- Background: warm off-white (`#FAFAF7`), generous whitespace
-- Cards: soft pastel gradients (peach/coffee for warm offers, blue/lavender for cold-weather offers), large radius, subtle shadow
-- Typography: tight, modern sans (Inter), large emotional headlines
-- Motion: smooth Framer-Motion-style transitions (card flip to QR, scenario change cross-fade, countdown pulse)
-
-## Routes & navigation
-
-```
-/                 -> redirects to /wallet
-/wallet           -> Consumer Wallet (mobile frame, centered)
-/merchant         -> Merchant Dashboard (sidebar layout)
-/merchant/campaigns
-/merchant/analytics
+```text
+Offer card → [Accept]
+            ↓
+    ┌────────────────┐
+    │  Lucky Spin 🎰 │   ← new screen
+    │  ◐ wheel ◑     │
+    └────────────────┘
+            ↓
+   Outcome reveal card
+            ↓
+       QR / Redeem
 ```
 
-Top nav bar across both views with a pill toggle: **Consumer** | **Merchant**.
+## Outcomes & weighting
 
-## 1. Consumer Wallet (`/wallet`)
+Visually the wheel shows **two big halves**: left = "Double or Nothing", right = "Safe Reward". Each half is sub-divided into thinner slices so the wheel still looks like a real roulette, but the final landing is decided by weighted random:
 
-Rendered inside a centered phone frame (~390×844, rounded bezel, subtle shadow) so it reads as a mobile mockup on desktop. On real mobile, frame collapses to full-screen.
+| Outcome | Visual side | Real probability | Effect |
+|---|---|---|---|
+| Double discount | Double or Nothing | 12% | Discount × 2 (capped at 80%) |
+| Lose the offer | Double or Nothing | 8% | Offer voided, back to feed |
+| +10 min time extension | Safe Reward | 25% | Adds 10 min to countdown |
+| Bonus add-on (free item) | Safe Reward | 20% | Free pretzel / extra scoop |
+| Normal coupon (as accepted) | Safe Reward | 30% | Standard redeem |
+| Jackpot −80% | Safe Reward | 5% | Cap discount to 80% |
 
-**Header (inside frame)**
-- Greeting: "Guten Tag, Lena" + small Stuttgart location chip
-- "Simulate Context" dropdown with scenarios:
-  - Cold & Raining — Tuesday 2:00 PM
-  - Sunny & Warm — Friday 5:00 PM
-  - Cold Evening — Thursday 7:00 PM
-  - Lunch Rush — Wednesday 12:30 PM
+Weights live in `src/lib/spin.ts` so they're easy to tune. A "House edge" toggle in the merchant rules page (existing campaigns route) can later flip these — out of scope for this pass beyond a stub.
 
-**Generative Offer Card** (the hero widget)
-- Cross-fades when scenario changes
-- Contents:
-  - Merchant avatar + name + distance ("80 m away")
-  - Emotional headline tied to context (e.g. "Cold outside? Your cappuccino is waiting.")
-  - Dynamic discount badge (e.g. "−30%")
-  - Live countdown ("Valid for 14:32")
-  - Why-this-offer micro-line ("Generated because: rain + quiet hours at Café Königsbau")
-  - **Accept** (primary) and **Dismiss** (ghost) buttons
+User-facing copy emphasizes "50/50" with two giant labels, but the slice geometry plus weighted RNG means the user almost always lands in a positive sub-slice.
 
-**Accept flow**
-- Card flips/morphs into a Redemption Screen:
-  - Big QR code (dummy SVG)
-  - Redemption code text
-  - Merchant + offer summary
-  - **Simulate Merchant Scan** button → success state with check animation, "Saved €1.20", then "Back to Wallet"
+## Wheel UI
 
-**Dismiss flow**
-- Card slides out, "Looking for your next offer…" placeholder, then surfaces an alternate offer for the same scenario.
+- SVG wheel, 6–8 colored slices using the existing oklch palette + soft gradients.
+- Conic-gradient backdrop with a subtle inner shadow for depth.
+- Pointer at the top; wheel rotates with framer-motion `animate={{ rotate }}` using a long ease-out (≈4s, `[0.16, 1, 0.3, 1]`).
+- On stop: the landed slice pulses, confetti-like sparkle ping (CSS only, no new dep), then a result card slides up.
+- Haptic-style micro-bounce on the pointer at each slice crossing using a tick sound is **out of scope** (no audio).
+- Skip button always visible — accessibility fallback that picks "Normal coupon".
 
-**Below the hero card**
-- Small "Recently saved" strip (mock past redemptions) for visual richness.
+## Outcome screens
 
-## 2. Merchant Dashboard (`/merchant/*`)
+Each outcome gets a tailored reveal card before continuing:
 
-Full desktop layout, collapsible sidebar.
+- **Double / Jackpot**: gold gradient, large "−X%", "Continue to redeem" → QR with updated `finalPrice`.
+- **Time extension**: blue gradient, "+10:00 added", returns to the offer card with countdown reset higher.
+- **Bonus add-on**: green gradient, "Free [item] added" line under offer, continues to QR.
+- **Lose**: muted gradient, gentle "Better luck next time" + "Back to feed" — offer is dismissed.
+- **Normal**: straight to QR, no extra screen.
 
-**Sidebar**
-- Brand mark "City-Wallet • Merchant"
-- Café profile chip ("Café Königsbau, Stuttgart")
-- Nav: Overview, Campaigns (Rules Engine), Analytics
+## UI / aesthetic polish pass
 
-**Overview** (`/merchant`)
-- Welcome header
-- 3 KPI cards (mirrors Analytics, condensed)
-- Recent generated offers list (mock)
+- Replace the flat phone-frame background with a layered glass effect: subtle noise texture (CSS `background-image` data-uri), softer dual radial gradients with more saturation contrast.
+- Add a thin top "status pill" showing live context (weather emoji + temp + time) above the offer card.
+- Offer card: tighten spacing, add a 1px inner highlight (`shadow-inset`), bump heading to a display-weight, add `tracking-tight`.
+- Buttons: convert primary CTA to a gradient pill (`bg-gradient-to-r from-foreground to-foreground/80`), add `active:scale-95` and a soft glow shadow.
+- Add a small "Saved this week: €X" chip in the header that increments on redeem.
+- Smooth route-level fade between offer → spin → reveal → redeem (all through existing AnimatePresence).
+- Reduce motion respected via `prefers-reduced-motion` (wheel snaps instantly, no confetti).
 
-**Campaigns / Rules Engine** (`/merchant/campaigns`)
-- Clean form, two-column on desktop:
-  - Quiet Hours (time range pickers, e.g. 14:00–17:00)
-  - Max Discount % (slider 5–50%)
-  - Goal (segmented control: Drive foot traffic / Clear inventory / Boost loyalty)
-  - Inventory focus (multi-select chips: Coffee, Pastries, Lunch, Cold drinks)
-  - Trigger conditions (toggles: Bad weather boost, Weekend boost)
-  - Budget cap per day (€)
-- Live "Preview offer" panel on the right showing how the rules render into a sample consumer card
-- Save button → toast "Rules updated" (in-memory)
+## Files
 
-**Analytics** (`/merchant/analytics`)
-- KPI cards:
-  - Offers Generated Today — 247
-  - Acceptance Rate — 38.2%
-  - Simulated Payone Transaction Uplift — +€312 (▲ 22%)
-- Two charts (Recharts):
-  - Offers vs Acceptances by hour (bar)
-  - Uplift trend last 7 days (line)
-- Small table: top performing offer templates
+**New**
+- `src/lib/spin.ts` — outcome types, weights, `pickOutcome()` weighted RNG, slice geometry.
+- `src/components/SpinWheel.tsx` — SVG wheel + spin animation + pointer.
+- `src/components/SpinResultCard.tsx` — reveal card variants per outcome.
 
-## Hardcoded scenario → offer mapping
-
-A single `scenarios.ts` module maps each scenario key to:
-- 1 primary offer (shown first)
-- 1 alternate (shown after Dismiss)
-- Headline, merchant, distance, discount %, countdown seconds, gradient palette, reasoning string
-
-Examples:
-- Cold/Rainy 2PM → Café Königsbau, "Cold outside? Your cappuccino is waiting 80 m away.", −30%, 15:00, blue-lavender gradient
-- Sunny/Warm 5PM → Biergarten am Schlossplatz, "Sun's out. First Radler on us.", −50% on first drink, 20:00, peach-amber gradient
-- Cold Evening → Maultaschen Manufaktur, "Warm up with house Maultaschen.", −20%, 25:00, deep-plum gradient
-- Lunch Rush → Bowls & Bites, "Skip the queue — order ahead, save 15%.", −15%, 10:00, mint-cream gradient
+**Edited**
+- `src/routes/wallet.tsx` — add `spin` and `result` view kinds between `offer` and `redeem`; thread outcome effects (modified discount / extended time / bonus / void) into the existing `RedeemCard` and `OfferCard`. Polish styling tokens.
+- `src/lib/scenarios.ts` — add an optional `bonusItem?: string` per offer (e.g. "free Brezel", "extra scoop") used by the Bonus outcome copy.
+- `src/styles.css` — one extra utility for the gradient CTA shadow + reduced-motion helper.
 
 ## Technical notes
 
-- TanStack Start file routes: `wallet.tsx`, `merchant.tsx` (layout with sidebar + Outlet), `merchant.index.tsx`, `merchant.campaigns.tsx`, `merchant.analytics.tsx`, plus `index.tsx` redirecting to `/wallet`
-- Each route gets its own `head()` metadata
-- State: React `useState` + a small Zustand-free context for selected scenario and merchant rules; resets on refresh
-- UI: existing shadcn components (Button, Card, Select, Slider, Toggle, Tabs, Sidebar, Sonner toasts)
-- Charts: `recharts` (already common in shadcn setups; install if missing)
-- QR code: lightweight `qrcode.react` package, or an inline SVG generator to avoid a dependency
-- Animations: CSS transitions + a tiny `framer-motion` install for card morph / cross-fade
-- Countdown: `useEffect` interval, pauses on tab blur
-- Tailwind tokens added to `styles.css`: warm off-white background, card gradient utility classes, soft shadow tokens
-- No backend, no Lovable Cloud
+- All randomness is local React state, no persistence (matches existing in-memory choice).
+- Time extension mutates a local copy of the offer's `validSeconds`; the existing `useCountdown` already keys on `offer.id`, so we'll switch the key to include a "version" suffix to force restart cleanly.
+- No new npm dependencies — wheel is hand-rolled SVG, animations via existing `framer-motion`.
+- Strict TS: every new file is created in the same edit batch as its imports.
