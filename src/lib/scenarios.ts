@@ -22,6 +22,7 @@ export type Offer = {
   gradient: string; // tailwind classes
   accent: string; // tailwind text color
   emoji: string;
+  bonusItem?: string; // optional add-on for "Bonus" spin outcome
 };
 
 export const SCENARIOS: Scenario[] = [
