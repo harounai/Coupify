@@ -1,4 +1,5 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { TopNav } from "../components/TopNav";
 
 import appCss from "../styles.css?url";
 
@@ -13,10 +14,10 @@ function NotFoundComponent() {
         </p>
         <div className="mt-6">
           <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            to="/wallet"
+            className="inline-flex items-center justify-center rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:opacity-90"
           >
-            Go home
+            Go to Wallet
           </Link>
         </div>
       </div>
@@ -29,19 +30,30 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "City-Wallet — Generative local offers, Stuttgart" },
+      {
+        name: "description",
+        content:
+          "Hyper-personalised, AI-generated local offers for Stuttgart. A demo of the Generative City-Wallet.",
+      },
+      { name: "author", content: "City-Wallet" },
+      { property: "og:title", content: "City-Wallet — Generative local offers" },
+      {
+        property: "og:description",
+        content: "Real-time, contextual offers from local merchants in Stuttgart.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      {
+        rel: "preconnect",
+        href: "https://fonts.googleapis.com",
+      },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap",
       },
     ],
   }),
@@ -56,7 +68,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         {children}
         <Scripts />
       </body>
@@ -65,5 +77,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <div className="flex min-h-screen flex-col">
+      <TopNav />
+      <Outlet />
+    </div>
+  );
 }
