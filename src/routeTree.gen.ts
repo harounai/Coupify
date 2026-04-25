@@ -10,11 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WalletRouteImport } from './routes/wallet'
+import { Route as MerchantRouteImport } from './routes/merchant'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MerchantIndexRouteImport } from './routes/merchant.index'
+import { Route as MerchantCampaignsRouteImport } from './routes/merchant.campaigns'
+import { Route as MerchantAnalyticsRouteImport } from './routes/merchant.analytics'
 
 const WalletRoute = WalletRouteImport.update({
   id: '/wallet',
   path: '/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MerchantRoute = MerchantRouteImport.update({
+  id: '/merchant',
+  path: '/merchant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,30 +31,75 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MerchantIndexRoute = MerchantIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantCampaignsRoute = MerchantCampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
+  getParentRoute: () => MerchantRoute,
+} as any)
+const MerchantAnalyticsRoute = MerchantAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => MerchantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/merchant': typeof MerchantRouteWithChildren
   '/wallet': typeof WalletRoute
+  '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/campaigns': typeof MerchantCampaignsRoute
+  '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/wallet': typeof WalletRoute
+  '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/campaigns': typeof MerchantCampaignsRoute
+  '/merchant': typeof MerchantIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/merchant': typeof MerchantRouteWithChildren
   '/wallet': typeof WalletRoute
+  '/merchant/analytics': typeof MerchantAnalyticsRoute
+  '/merchant/campaigns': typeof MerchantCampaignsRoute
+  '/merchant/': typeof MerchantIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/wallet'
+  fullPaths:
+    | '/'
+    | '/merchant'
+    | '/wallet'
+    | '/merchant/analytics'
+    | '/merchant/campaigns'
+    | '/merchant/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/wallet'
-  id: '__root__' | '/' | '/wallet'
+  to:
+    | '/'
+    | '/wallet'
+    | '/merchant/analytics'
+    | '/merchant/campaigns'
+    | '/merchant'
+  id:
+    | '__root__'
+    | '/'
+    | '/merchant'
+    | '/wallet'
+    | '/merchant/analytics'
+    | '/merchant/campaigns'
+    | '/merchant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MerchantRoute: typeof MerchantRouteWithChildren
   WalletRoute: typeof WalletRoute
 }
 
@@ -58,6 +112,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WalletRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/merchant': {
+      id: '/merchant'
+      path: '/merchant'
+      fullPath: '/merchant'
+      preLoaderRoute: typeof MerchantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,11 +126,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/merchant/': {
+      id: '/merchant/'
+      path: '/'
+      fullPath: '/merchant/'
+      preLoaderRoute: typeof MerchantIndexRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/campaigns': {
+      id: '/merchant/campaigns'
+      path: '/campaigns'
+      fullPath: '/merchant/campaigns'
+      preLoaderRoute: typeof MerchantCampaignsRouteImport
+      parentRoute: typeof MerchantRoute
+    }
+    '/merchant/analytics': {
+      id: '/merchant/analytics'
+      path: '/analytics'
+      fullPath: '/merchant/analytics'
+      preLoaderRoute: typeof MerchantAnalyticsRouteImport
+      parentRoute: typeof MerchantRoute
+    }
   }
 }
 
+interface MerchantRouteChildren {
+  MerchantAnalyticsRoute: typeof MerchantAnalyticsRoute
+  MerchantCampaignsRoute: typeof MerchantCampaignsRoute
+  MerchantIndexRoute: typeof MerchantIndexRoute
+}
+
+const MerchantRouteChildren: MerchantRouteChildren = {
+  MerchantAnalyticsRoute: MerchantAnalyticsRoute,
+  MerchantCampaignsRoute: MerchantCampaignsRoute,
+  MerchantIndexRoute: MerchantIndexRoute,
+}
+
+const MerchantRouteWithChildren = MerchantRoute._addFileChildren(
+  MerchantRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MerchantRoute: MerchantRouteWithChildren,
   WalletRoute: WalletRoute,
 }
 export const routeTree = rootRouteImport
