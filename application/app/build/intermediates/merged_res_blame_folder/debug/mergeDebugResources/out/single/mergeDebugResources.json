@@ -1,0 +1,134 @@
+[
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-mdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-hdpi\\ic_launcher.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-mdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxhdpi\\ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-hdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-hdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-mdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-mdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxxhdpi\\ic_launcher.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxxhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xhdpi\\ic_launcher.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xhdpi_ic_launcher.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\drawable_ic_launcher_background.xml.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\drawable\\ic_launcher_background.xml"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxhdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-hdpi\\ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xhdpi_ic_launcher_round.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xhdpi\\ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxxhdpi_ic_launcher.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxxhdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxhdpi_ic_launcher.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxhdpi\\ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxhdpi_ic_launcher_round.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxhdpi\\ic_launcher_round.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-xxxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-xxxhdpi/ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-hdpi_ic_launcher.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-hdpi/ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-mdpi_ic_launcher_round.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-mdpi\\ic_launcher_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-mdpi_ic_launcher.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-mdpi\\ic_launcher.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-mdpi_ic_launcher_foreground.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-mdpi\\ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-hdpi_ic_launcher_foreground.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-hdpi\\ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "com.generativecity.wallet.app-debug-4:/mipmap-hdpi_ic_launcher_round.webp.flat",
+        "source": "com.generativecity.wallet.app-main-6:/mipmap-hdpi/ic_launcher_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxxhdpi_ic_launcher_round.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxxhdpi\\ic_launcher_round.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xhdpi_ic_launcher_foreground.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xhdpi\\ic_launcher_foreground.webp"
+    },
+    {
+        "merged": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-debug-4:\\mipmap-xxxhdpi_ic_launcher_foreground.webp.flat",
+        "source": "C:\\Users\\loren\\.gradle\\daemon\\9.0.0\\com.generativecity.wallet.app-main-6:\\mipmap-xxxhdpi\\ic_launcher_foreground.webp"
+    }
+]
