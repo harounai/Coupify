@@ -9,9 +9,14 @@ import {
   ScanLine,
   Sparkles,
   X,
+  Gift,
+  Wallet as WalletIcon,
 } from "lucide-react";
 import { SCENARIOS, type Offer } from "../lib/scenarios";
 import { QrCode } from "../components/QrCode";
+import { SpinWheel } from "../components/SpinWheel";
+import { SpinResultCard } from "../components/SpinResultCard";
+import type { SpinOutcome } from "../lib/spin";
 import {
   Select,
   SelectContent,
@@ -39,55 +44,141 @@ export const Route = createFileRoute("/wallet")({
   component: WalletPage,
 });
 
+type ActiveOffer = Offer & {
+  bonusActive?: boolean;
+  // Used to force the countdown hook to restart when we extend time
+  versionKey: string;
+};
+
 type View =
-  | { kind: "offer"; offer: Offer }
-  | { kind: "redeem"; offer: Offer }
-  | { kind: "redeemed"; offer: Offer }
+  | { kind: "offer"; offer: ActiveOffer }
+  | { kind: "spin"; offer: ActiveOffer }
+  | { kind: "result"; offer: ActiveOffer; outcome: SpinOutcome }
+  | { kind: "redeem"; offer: ActiveOffer }
+  | { kind: "redeemed"; offer: ActiveOffer }
   | { kind: "empty" };
+
+function toActive(o: Offer): ActiveOffer {
+  return { ...o, versionKey: o.id };
+}
 
 function WalletPage() {
   const [scenarioKey, setScenarioKey] = useState(SCENARIOS[0].key);
   const [offerIndex, setOfferIndex] = useState(0);
   const [view, setView] = useState<View>({
     kind: "offer",
-    offer: SCENARIOS[0].offers[0],
+    offer: toActive(SCENARIOS[0].offers[0]),
   });
-  const [history, setHistory] = useState<{ offer: Offer; ts: number }[]>([]);
+  const [history, setHistory] = useState<{ offer: ActiveOffer; ts: number }[]>(
+    []
+  );
 
   const scenario = useMemo(
     () => SCENARIOS.find((s) => s.key === scenarioKey)!,
     [scenarioKey]
   );
 
+  const totalSaved = history.reduce(
+    (sum, h) => sum + (h.offer.originalPrice - h.offer.finalPrice),
+    0
+  );
+
   // When scenario changes, reset to first offer
   useEffect(() => {
     setOfferIndex(0);
-    setView({ kind: "offer", offer: scenario.offers[0] });
+    setView({ kind: "offer", offer: toActive(scenario.offers[0]) });
   }, [scenarioKey, scenario.offers]);
 
-  const onAccept = (offer: Offer) => {
-    setView({ kind: "redeem", offer });
+  const onAccept = (offer: ActiveOffer) => {
+    setView({ kind: "spin", offer });
   };
   const onDismiss = () => {
     const next = offerIndex + 1;
     if (next < scenario.offers.length) {
       setOfferIndex(next);
-      setView({ kind: "offer", offer: scenario.offers[next] });
+      setView({ kind: "offer", offer: toActive(scenario.offers[next]) });
     } else {
       setView({ kind: "empty" });
     }
   };
-  const onScan = (offer: Offer) => {
+  const onScan = (offer: ActiveOffer) => {
     setView({ kind: "redeemed", offer });
     setHistory((h) => [{ offer, ts: Date.now() }, ...h].slice(0, 4));
   };
   const backToWallet = () => {
     setOfferIndex(0);
-    setView({ kind: "offer", offer: scenario.offers[0] });
+    setView({ kind: "offer", offer: toActive(scenario.offers[0]) });
   };
 
+  const onSpinResult = (outcome: SpinOutcome) => {
+    if (view.kind !== "spin") return;
+    setView({ kind: "result", offer: view.offer, outcome });
+  };
+
+  const onSpinSkip = () => {
+    if (view.kind !== "spin") return;
+    setView({ kind: "redeem", offer: view.offer });
+  };
+
+  const continueFromResult = () => {
+    if (view.kind !== "result") return;
+    const { offer, outcome } = view;
+    switch (outcome.kind) {
+      case "double": {
+        const newDiscount = Math.min(80, offer.discount * 2);
+        const finalPrice = +(
+          offer.originalPrice *
+          (1 - newDiscount / 100)
+        ).toFixed(2);
+        setView({
+          kind: "redeem",
+          offer: { ...offer, discount: newDiscount, finalPrice },
+        });
+        break;
+      }
+      case "jackpot": {
+        const finalPrice = +(offer.originalPrice * 0.2).toFixed(2);
+        setView({
+          kind: "redeem",
+          offer: { ...offer, discount: 80, finalPrice },
+        });
+        break;
+      }
+      case "extend": {
+        setView({
+          kind: "offer",
+          offer: {
+            ...offer,
+            validSeconds: offer.validSeconds + 600,
+            versionKey: `${offer.id}-${Date.now()}`,
+          },
+        });
+        break;
+      }
+      case "bonus": {
+        setView({
+          kind: "redeem",
+          offer: { ...offer, bonusActive: true },
+        });
+        break;
+      }
+      case "lose": {
+        onDismiss();
+        break;
+      }
+      case "normal":
+      default:
+        setView({ kind: "redeem", offer });
+    }
+  };
+
+  const backFromResult = () => backToWallet();
+
   return (
-    <main className="flex flex-1 items-start justify-center bg-[radial-gradient(ellipse_at_top,oklch(0.96_0.02_60),transparent_60%),radial-gradient(ellipse_at_bottom_right,oklch(0.95_0.03_240),transparent_55%)] px-4 py-8 sm:py-12">
+    <main className="relative flex flex-1 items-start justify-center px-4 py-8 sm:py-12">
+      {/* layered ambient backdrop */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,oklch(0.96_0.04_60),transparent_55%),radial-gradient(ellipse_at_bottom_right,oklch(0.94_0.05_240),transparent_55%),radial-gradient(ellipse_at_bottom_left,oklch(0.95_0.05_150),transparent_50%)]" />
+
       <div className="w-full max-w-md">
         {/* Phone frame */}
         <div className="relative mx-auto w-full max-w-[400px]">
@@ -113,8 +204,20 @@ function WalletPage() {
                   </div>
                 </div>
 
+                {/* savings + context pills */}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
+                    <WalletIcon className="h-3 w-3" />
+                    Saved €{totalSaved.toFixed(2)}
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground">
+                    <span>{scenario.emoji}</span>
+                    <span>{scenario.weather}</span>
+                  </div>
+                </div>
+
                 {/* scenario selector */}
-                <div className="mt-4">
+                <div className="mt-3">
                   <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Simulate context
                   </label>
@@ -131,11 +234,6 @@ function WalletPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <div className="mt-2 flex items-center gap-3 px-1 text-[11px] text-muted-foreground">
-                    <span>{scenario.weather}</span>
-                    <span>·</span>
-                    <span>{scenario.time}</span>
-                  </div>
                 </div>
               </div>
 
@@ -149,7 +247,7 @@ function WalletPage() {
                 <AnimatePresence mode="wait">
                   {view.kind === "offer" && (
                     <motion.div
-                      key={`offer-${view.offer.id}`}
+                      key={`offer-${view.offer.versionKey}`}
                       initial={{ opacity: 0, y: 16, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -12, scale: 0.98 }}
@@ -159,6 +257,34 @@ function WalletPage() {
                         offer={view.offer}
                         onAccept={() => onAccept(view.offer)}
                         onDismiss={onDismiss}
+                      />
+                    </motion.div>
+                  )}
+
+                  {view.kind === "spin" && (
+                    <motion.div
+                      key={`spin-${view.offer.id}`}
+                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <SpinWheel onResult={onSpinResult} onSkip={onSpinSkip} />
+                    </motion.div>
+                  )}
+
+                  {view.kind === "result" && (
+                    <motion.div
+                      key={`result-${view.outcome.kind}-${view.offer.id}`}
+                      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96 }}
+                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      <SpinResultCard
+                        outcome={view.outcome}
+                        onContinue={continueFromResult}
+                        onBack={backFromResult}
                       />
                     </motion.div>
                   )}
@@ -212,32 +338,38 @@ function WalletPage() {
                 </AnimatePresence>
 
                 {/* Recently saved */}
-                {history.length > 0 && view.kind !== "redeem" && view.kind !== "redeemed" && (
-                  <div className="mt-5">
-                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Recently saved
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                      {history.map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex min-w-[140px] items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5"
-                        >
-                          <div className="text-lg">{h.offer.emoji}</div>
-                          <div className="leading-tight">
-                            <div className="text-[11px] font-medium">
-                              {h.offer.merchant}
-                            </div>
-                            <div className="text-[10px] text-success">
-                              Saved €
-                              {(h.offer.originalPrice - h.offer.finalPrice).toFixed(2)}
+                {history.length > 0 &&
+                  view.kind !== "redeem" &&
+                  view.kind !== "redeemed" &&
+                  view.kind !== "spin" &&
+                  view.kind !== "result" && (
+                    <div className="mt-5">
+                      <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Recently saved
+                      </div>
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {history.map((h, i) => (
+                          <div
+                            key={i}
+                            className="flex min-w-[140px] items-center gap-2 rounded-2xl border border-border/60 bg-card p-2.5"
+                          >
+                            <div className="text-lg">{h.offer.emoji}</div>
+                            <div className="leading-tight">
+                              <div className="text-[11px] font-medium">
+                                {h.offer.merchant}
+                              </div>
+                              <div className="text-[10px] text-success">
+                                Saved €
+                                {(
+                                  h.offer.originalPrice - h.offer.finalPrice
+                                ).toFixed(2)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             </div>
           </div>
@@ -278,16 +410,16 @@ function OfferCard({
   onAccept,
   onDismiss,
 }: {
-  offer: Offer;
+  offer: ActiveOffer;
   onAccept: () => void;
   onDismiss: () => void;
 }) {
-  const { label, remaining } = useCountdown(offer.validSeconds, offer.id);
+  const { label, remaining } = useCountdown(offer.validSeconds, offer.versionKey);
   const urgent = remaining < 60;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${offer.gradient} p-5 shadow-[var(--shadow-card)]`}
+      className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${offer.gradient} p-5 shadow-[var(--shadow-card)] ring-1 ring-white/40`}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
@@ -341,14 +473,18 @@ function OfferCard({
             €{offer.finalPrice.toFixed(2)}
           </span>
         </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-foreground/60">
+          <Sparkles className="h-2.5 w-2.5" />
+          Spin to win
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
         <button
           onClick={onAccept}
-          className="rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-transform active:scale-[0.98]"
+          className="rounded-2xl bg-gradient-to-r from-foreground to-[oklch(0.28_0.04_270)] py-3 text-sm font-semibold text-background shadow-[0_8px_20px_-8px_oklch(0_0_0/0.4)] transition-transform active:scale-95"
         >
-          Accept offer
+          Accept & spin
         </button>
         <button
           onClick={onDismiss}
@@ -367,14 +503,14 @@ function RedeemCard({
   onScan,
   onBack,
 }: {
-  offer: Offer;
+  offer: ActiveOffer;
   onScan: () => void;
   onBack: () => void;
 }) {
   const code = `CW-${offer.id.toUpperCase()}-${Math.floor(Math.random() * 9000) + 1000}`;
   return (
     <div
-      className={`overflow-hidden rounded-3xl bg-gradient-to-br ${offer.gradient} p-5 shadow-[var(--shadow-card)]`}
+      className={`overflow-hidden rounded-3xl bg-gradient-to-br ${offer.gradient} p-5 shadow-[var(--shadow-card)] ring-1 ring-white/40`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -416,11 +552,17 @@ function RedeemCard({
             save €{(offer.originalPrice - offer.finalPrice).toFixed(2)}
           </span>
         </div>
+        {offer.bonusActive && offer.bonusItem && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.93_0.09_150)] px-2.5 py-1 text-[11px] font-semibold text-[oklch(0.35_0.13_150)]">
+            <Gift className="h-3 w-3" />
+            Includes {offer.bonusItem}
+          </div>
+        )}
       </div>
 
       <button
         onClick={onScan}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background transition-transform active:scale-[0.98]"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-semibold text-background shadow-[0_8px_20px_-8px_oklch(0_0_0/0.4)] transition-transform active:scale-95"
       >
         <ScanLine className="h-4 w-4" />
         Simulate merchant scan
@@ -429,7 +571,13 @@ function RedeemCard({
   );
 }
 
-function SuccessCard({ offer, onBack }: { offer: Offer; onBack: () => void }) {
+function SuccessCard({
+  offer,
+  onBack,
+}: {
+  offer: ActiveOffer;
+  onBack: () => void;
+}) {
   return (
     <div className="overflow-hidden rounded-3xl bg-card p-6 text-center shadow-[var(--shadow-card)]">
       <motion.div
@@ -447,6 +595,12 @@ function SuccessCard({ offer, onBack }: { offer: Offer; onBack: () => void }) {
       <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
         Saved €{(offer.originalPrice - offer.finalPrice).toFixed(2)}
       </div>
+      {offer.bonusActive && offer.bonusItem && (
+        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.93_0.09_150)] px-3 py-1 text-[12px] font-semibold text-[oklch(0.35_0.13_150)]">
+          <Gift className="h-3 w-3" />
+          Bonus: {offer.bonusItem}
+        </div>
+      )}
       <p className="mt-4 text-xs text-muted-foreground">
         Payment of €{offer.finalPrice.toFixed(2)} processed via Payone (simulated).
       </p>
