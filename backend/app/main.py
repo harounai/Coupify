@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
             session_factory=SessionLocal,
             tick_seconds=settings.ai_notification_tick_seconds,
             enabled=settings.ai_notification_enabled,
+            max_per_user_per_day=settings.ai_notification_max_per_user_per_day,
         )
     )
     yield

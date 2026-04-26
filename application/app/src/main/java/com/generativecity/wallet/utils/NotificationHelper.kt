@@ -14,9 +14,6 @@ import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.generativecity.wallet.MainActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class NotificationHelper(private val context: Context) {
 
@@ -24,6 +21,8 @@ class NotificationHelper(private val context: Context) {
         private const val CHANNEL_ID = "coupon_notifications"
         private const val CHANNEL_NAME = "Coupon Offers"
         private const val CHANNEL_DESCRIPTION = "Notifications for new available coupons"
+        private const val PREFS_NAME = "notification_prefs"
+        private const val PREF_SEEN_IDS = "seen_ids"
     }
 
     init {
@@ -43,42 +42,53 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun showCouponNotification(businessName: String, title: String, discount: Int, imageUrl: String) {
-        val scope = CoroutineScope(Dispatchers.IO)
-        scope.launch {
-            val bitmap = downloadImage(imageUrl)
-
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
-                addNextIntentWithParentStack(intent)
-                getPendingIntent(
-                    businessName.hashCode(),
-                    PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
-                )
-            }
-            
-            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("New Offer: $businessName")
-                .setContentText("$title - $discount% OFF!")
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .setColor(0xFFF97316.toInt())
-                .setContentIntent(pendingIntent)
-                .apply {
-                    if (bitmap != null) {
-                        setLargeIcon(bitmap)
-                        setStyle(NotificationCompat.BigPictureStyle()
-                            .bigPicture(bitmap)
-                            .bigLargeIcon(null as Bitmap?))
-                    }
-                }
-
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(businessName.hashCode(), builder.build())
+    suspend fun showCouponNotification(
+        notificationId: String,
+        businessName: String,
+        title: String,
+        discount: Int,
+        imageUrl: String,
+    ) {
+        if (hasSeen(notificationId)) {
+            return
         }
+
+        val bitmap = downloadImage(imageUrl)
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val requestCode = notificationId.hashCode()
+        val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
+            addNextIntentWithParentStack(intent)
+            getPendingIntent(
+                requestCode,
+                PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("New Offer: $businessName")
+            .setContentText("$title - $discount% OFF!")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setColor(0xFFF97316.toInt())
+            .setContentIntent(pendingIntent)
+            .apply {
+                if (bitmap != null) {
+                    setLargeIcon(bitmap)
+                    setStyle(
+                        NotificationCompat.BigPictureStyle()
+                            .bigPicture(bitmap)
+                            .bigLargeIcon(null as Bitmap?)
+                    )
+                }
+            }
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(requestCode, builder.build())
+        markSeen(notificationId)
     }
 
     private suspend fun downloadImage(url: String): Bitmap? {
@@ -94,5 +104,18 @@ class NotificationHelper(private val context: Context) {
         } else {
             null
         }
+    }
+
+    private fun hasSeen(notificationId: String): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val seen = prefs.getStringSet(PREF_SEEN_IDS, emptySet()).orEmpty()
+        return seen.contains(notificationId)
+    }
+
+    private fun markSeen(notificationId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val seen = prefs.getStringSet(PREF_SEEN_IDS, emptySet()).orEmpty().toMutableSet()
+        seen.add(notificationId)
+        prefs.edit().putStringSet(PREF_SEEN_IDS, seen).apply()
     }
 }

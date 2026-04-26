@@ -110,6 +110,16 @@ class Notification(Base):
     coupon: Mapped[CouponInstance] = relationship()
 
 
+class UserDeviceToken(Base):
+    __tablename__ = "user_device_tokens"
+
+    token: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), index=True)
+    platform: Mapped[str] = mapped_column(String, default="android")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AuthSession(Base):
     """
     Token revocation + session tracking.

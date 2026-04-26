@@ -151,3 +151,7 @@ class UserPreferencesIn(BaseModel):
     avoid_list: list[str] = Field(default_factory=list)
     free_text_notes: str | None = Field(default=None, max_length=500)
 
+
+class RegisterDeviceRequest(BaseModel):
+    fcm_token: str = Field(min_length=16, max_length=4096)
+

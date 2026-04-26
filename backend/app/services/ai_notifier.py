@@ -7,8 +7,9 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Business, CouponTemplate, Notification, User
+from app.models import Business, CouponInstance, CouponTemplate, Notification, User
 from app.services.ai_ranker import AiRanker
+from app.services.fcm_push import send_push_to_user
 from app.services.offers_service import create_coupon_instance, list_businesses_with_distance
 from app.services.simulated_signals import get_demand_signal, get_events_signal, get_weather_signal
 from app.services.signals import LocationSignal, TimeSignal
@@ -83,7 +84,7 @@ def build_should_notify_prompt(
     )
 
 
-async def tick_generate_notifications(db: Session) -> int:
+async def tick_generate_notifications(db: Session, *, max_per_user_per_day: int = 1) -> int:
     """
     One tick: for each user, decide whether to create a new backend notification.
     Returns how many notifications were created.
@@ -100,15 +101,16 @@ async def tick_generate_notifications(db: Session) -> int:
         if not user.has_completed_onboarding:
             continue
 
-        # Basic anti-spam: max 1 notification per user per day for now.
-        already_today = (
-            db.query(Notification)
-            .filter(Notification.user_id == user.id)
-            .filter(Notification.created_at >= datetime(now.year, now.month, now.day))
-            .first()
-        )
-        if already_today:
-            continue
+        # Optional anti-spam cap. Set max_per_user_per_day=0 to disable day-level capping.
+        if max_per_user_per_day > 0:
+            sent_today = (
+                db.query(Notification)
+                .filter(Notification.user_id == user.id)
+                .filter(Notification.created_at >= datetime(now.year, now.month, now.day))
+                .count()
+            )
+            if sent_today >= max_per_user_per_day:
+                continue
 
         interests = [s.strip() for s in (user.interests_csv or "").split(",") if s.strip()]
 
@@ -140,6 +142,20 @@ async def tick_generate_notifications(db: Session) -> int:
         )
         ranked_set = {cid: i for i, cid in enumerate(ranked_ids)}
         candidates.sort(key=lambda c: ranked_set.get(c["id"], 10_000))
+
+        # Avoid re-issuing the same template for the same day (DB uniqueness constraint).
+        issued_template_ids_today = {
+            row[0]
+            for row in (
+                db.query(CouponInstance.template_id)
+                .filter(CouponInstance.user_id == user.id)
+                .filter(CouponInstance.day_key == day_key)
+                .all()
+            )
+        }
+        candidates = [c for c in candidates if c["template_id"] not in issued_template_ids_today]
+        if not candidates:
+            continue
 
         # Step 2: ask ollama "should_notify" on the top slice
         signals = {
@@ -197,18 +213,30 @@ async def tick_generate_notifications(db: Session) -> int:
         )
         db.add(notif)
         db.commit()
+        await send_push_to_user(
+            db,
+            user_id=user.id,
+            title=notif.title,
+            body=notif.body,
+            data={
+                "notification_id": notif.id,
+                "business_name": biz.name,
+                "discount_percent": str(inst.discount_percent),
+                "image_url": biz.image_url,
+            },
+        )
         created += 1
 
     return created
 
 
-async def run_notification_loop(*, session_factory, tick_seconds: int, enabled: bool) -> None:
+async def run_notification_loop(*, session_factory, tick_seconds: int, enabled: bool, max_per_user_per_day: int = 1) -> None:
     if not enabled:
         return
     while True:
         try:
             with session_factory() as db:
-                await tick_generate_notifications(db)
+                await tick_generate_notifications(db, max_per_user_per_day=max_per_user_per_day)
         except Exception:
             # swallow to keep loop alive (local dev)
             pass

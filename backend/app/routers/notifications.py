@@ -2,11 +2,31 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.deps import get_current_user_id, get_db
-from app.models import Notification
+from app.models import Notification, UserDeviceToken
+from app.schemas import RegisterDeviceRequest
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@router.post("/register-device")
+def register_device(
+    body: RegisterDeviceRequest,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    token = body.fcm_token.strip()
+    existing = db.get(UserDeviceToken, token)
+    if existing:
+        existing.user_id = user_id
+        existing.updated_at = datetime.utcnow()
+        db.add(existing)
+    else:
+        db.add(UserDeviceToken(token=token, user_id=user_id, platform="android"))
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.get("/inbox")

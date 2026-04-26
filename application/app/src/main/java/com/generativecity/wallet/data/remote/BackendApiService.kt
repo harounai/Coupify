@@ -106,6 +106,10 @@ data class NotificationInboxItemDto(
     val created_at: String
 )
 
+data class RegisterDeviceRequestDto(
+    val fcm_token: String
+)
+
 interface BackendApiService {
     // Auth Endpoints
     @POST("v1/auth/register")
@@ -165,5 +169,11 @@ interface BackendApiService {
     suspend fun declineNotification(
         @Header("Authorization") token: String,
         @Path("notificationId") notificationId: String
+    ): Any
+
+    @POST("v1/notifications/register-device")
+    suspend fun registerDevice(
+        @Header("Authorization") token: String,
+        @Body body: RegisterDeviceRequestDto
     ): Any
 }

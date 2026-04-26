@@ -35,6 +35,7 @@ class NotificationsViewModel(
                             .forEach { item ->
                                 seenNotificationIds.add(item.id)
                                 notificationHelper.showCouponNotification(
+                                    notificationId = item.id,
                                     businessName = item.business_name.ifBlank { "New offer" },
                                     title = item.title,
                                     discount = item.discount_percent,
