@@ -61,6 +61,8 @@ class MockBackendApiService : BackendApiService {
 
     override suspend fun getNotificationInbox(token: String): List<NotificationInboxItemDto> = emptyList()
 
+    override suspend fun registerDevice(token: String, body: RegisterDeviceRequestDto): Any = Any()
+
     override suspend fun acceptNotification(token: String, notificationId: String): Any = Any()
 
     override suspend fun declineNotification(token: String, notificationId: String): Any = Any()

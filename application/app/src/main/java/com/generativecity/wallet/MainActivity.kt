@@ -14,6 +14,7 @@ import com.generativecity.wallet.ui.navigation.AppNavGraph
 import com.generativecity.wallet.ui.theme.GenerativeCityWalletTheme
 import com.generativecity.wallet.viewmodel.AppViewModelFactory
 import com.generativecity.wallet.workers.NotificationInboxSyncWorker
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 
@@ -47,6 +48,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun registerFcmToken(container: AppContainer) {
+        val app = runCatching { FirebaseApp.initializeApp(this) }.getOrNull()
+        if (app == null) return
+
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) return@addOnCompleteListener
             val token = task.result ?: return@addOnCompleteListener

@@ -116,6 +116,7 @@ data class NotificationInboxItemDto(
 
 data class RegisterDeviceRequestDto(
     val fcm_token: String
+)
 
 // Merchant DTOs
 data class MerchantBusinessDto(

@@ -204,6 +204,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                     homeState = homeState,
                     walletState = walletState,
                     notificationsState = notificationsState,
+                    onRefresh = { homeViewModel.refresh() },
                     onUseOffer = { offerId ->
                         walletViewModel.openQrForOffer(offerId)
                     },

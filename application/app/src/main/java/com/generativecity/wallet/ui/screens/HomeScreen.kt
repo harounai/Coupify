@@ -43,6 +43,7 @@ fun HomeScreen(
     homeState: HomeUiState,
     walletState: WalletUiState,
     notificationsState: NotificationsUiState,
+    onRefresh: () -> Unit,
     onUseOffer: (String) -> Unit,
     onDeclineNotification: (String) -> Unit,
     onAcceptNotification: (String) -> Unit,
@@ -55,6 +56,11 @@ fun HomeScreen(
 ) {
     val dismissedLiveIds = remember { mutableStateListOf<String>() }
     val acceptedLiveIds = remember { mutableStateListOf<String>() }
+
+    // Retry loading whenever this screen is (re)entered, so transient startup failures recover.
+    LaunchedEffect(Unit) {
+        onRefresh()
+    }
 
     Box(
         modifier = Modifier
@@ -90,6 +96,10 @@ fun HomeScreen(
                                 color = Color(0xFF9A3412),
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            TextButton(onClick = onRefresh) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.generativecity.wallet.services
 
 import com.generativecity.wallet.data.repository.AppContainer
+import com.google.firebase.FirebaseApp
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -11,6 +12,7 @@ class CitySparkFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         if (token.isBlank()) return
+        if (runCatching { FirebaseApp.getApps(this).isNotEmpty() }.getOrDefault(false).not()) return
         val appContainer = AppContainer(applicationContext)
         CoroutineScope(Dispatchers.IO).launch {
             runCatching { appContainer.notificationsRepository.registerDeviceToken(token) }
