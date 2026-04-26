@@ -34,11 +34,11 @@ public final class AppDatabase_Impl extends AppDatabase {
     final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(config, new RoomOpenHelper.Delegate(3) {
       @Override
       public void createAllTables(@NonNull final SupportSQLiteDatabase db) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `role` TEXT NOT NULL, `username` TEXT NOT NULL, `interestsCsv` TEXT NOT NULL, `explorationPreference` INTEGER NOT NULL, `companyName` TEXT, `companyCategory` TEXT, `maxDiscountPercent` INTEGER)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `offers` (`id` TEXT NOT NULL, `userId` INTEGER NOT NULL, `title` TEXT NOT NULL, `discountPercent` INTEGER NOT NULL, `distanceKm` REAL NOT NULL, `createdEpochMillis` INTEGER NOT NULL, `expiryEpochMillis` INTEGER NOT NULL, `businessName` TEXT NOT NULL, `category` TEXT NOT NULL, `imageUrl` TEXT NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`id`))");
-        db.execSQL("CREATE TABLE IF NOT EXISTS `reward_inventory` (`userId` INTEGER NOT NULL, `coins` INTEGER NOT NULL, `boosts` INTEGER NOT NULL, `streakDays` INTEGER NOT NULL, `lastLoginEpochMillis` INTEGER NOT NULL, `streakFreezerCount` INTEGER NOT NULL, `doubleOrNothingCount` INTEGER NOT NULL, `freeCouponCount` INTEGER NOT NULL, `timeExtensionCount` INTEGER NOT NULL, PRIMARY KEY(`userId`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `users` (`id` TEXT NOT NULL, `role` TEXT NOT NULL, `username` TEXT NOT NULL, `email` TEXT NOT NULL, `token` TEXT, `hasCompletedOnboarding` INTEGER NOT NULL, `interestsCsv` TEXT NOT NULL, `explorationPreference` INTEGER NOT NULL, `companyName` TEXT, `companyCategory` TEXT, `maxDiscountPercent` INTEGER, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `offers` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `title` TEXT NOT NULL, `discountPercent` INTEGER NOT NULL, `distanceKm` REAL NOT NULL, `createdEpochMillis` INTEGER NOT NULL, `expiryEpochMillis` INTEGER NOT NULL, `businessName` TEXT NOT NULL, `category` TEXT NOT NULL, `imageUrl` TEXT NOT NULL, `status` TEXT NOT NULL, PRIMARY KEY(`id`))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS `reward_inventory` (`userId` TEXT NOT NULL, `coins` INTEGER NOT NULL, `boosts` INTEGER NOT NULL, `streakDays` INTEGER NOT NULL, `lastLoginEpochMillis` INTEGER NOT NULL, `streakFreezerCount` INTEGER NOT NULL, `doubleOrNothingCount` INTEGER NOT NULL, `freeCouponCount` INTEGER NOT NULL, `timeExtensionCount` INTEGER NOT NULL, PRIMARY KEY(`userId`))");
         db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '44e10125a5a3539f453b170055d766bb')");
+        db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'da4aa631d00691f12ae28a289f638877')");
       }
 
       @Override
@@ -89,10 +89,13 @@ public final class AppDatabase_Impl extends AppDatabase {
       @NonNull
       public RoomOpenHelper.ValidationResult onValidateSchema(
           @NonNull final SupportSQLiteDatabase db) {
-        final HashMap<String, TableInfo.Column> _columnsUsers = new HashMap<String, TableInfo.Column>(8);
-        _columnsUsers.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        final HashMap<String, TableInfo.Column> _columnsUsers = new HashMap<String, TableInfo.Column>(11);
+        _columnsUsers.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsUsers.put("role", new TableInfo.Column("role", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsUsers.put("username", new TableInfo.Column("username", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsUsers.put("email", new TableInfo.Column("email", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsUsers.put("token", new TableInfo.Column("token", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsUsers.put("hasCompletedOnboarding", new TableInfo.Column("hasCompletedOnboarding", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsUsers.put("interestsCsv", new TableInfo.Column("interestsCsv", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsUsers.put("explorationPreference", new TableInfo.Column("explorationPreference", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsUsers.put("companyName", new TableInfo.Column("companyName", "TEXT", false, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -109,7 +112,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         final HashMap<String, TableInfo.Column> _columnsOffers = new HashMap<String, TableInfo.Column>(11);
         _columnsOffers.put("id", new TableInfo.Column("id", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
-        _columnsOffers.put("userId", new TableInfo.Column("userId", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsOffers.put("userId", new TableInfo.Column("userId", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsOffers.put("title", new TableInfo.Column("title", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsOffers.put("discountPercent", new TableInfo.Column("discountPercent", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsOffers.put("distanceKm", new TableInfo.Column("distanceKm", "REAL", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -129,7 +132,7 @@ public final class AppDatabase_Impl extends AppDatabase {
                   + " Found:\n" + _existingOffers);
         }
         final HashMap<String, TableInfo.Column> _columnsRewardInventory = new HashMap<String, TableInfo.Column>(9);
-        _columnsRewardInventory.put("userId", new TableInfo.Column("userId", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsRewardInventory.put("userId", new TableInfo.Column("userId", "TEXT", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsRewardInventory.put("coins", new TableInfo.Column("coins", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsRewardInventory.put("boosts", new TableInfo.Column("boosts", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsRewardInventory.put("streakDays", new TableInfo.Column("streakDays", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
@@ -149,7 +152,7 @@ public final class AppDatabase_Impl extends AppDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "44e10125a5a3539f453b170055d766bb", "e138275ad9c7c8a8de125a69d52602f4");
+    }, "da4aa631d00691f12ae28a289f638877", "3019c2bd3f0d82a4cd17bfb755491dc4");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(config.context).name(config.name).callback(_openCallback).build();
     final SupportSQLiteOpenHelper _helper = config.sqliteOpenHelperFactory.create(_sqliteConfig);
     return _helper;

@@ -59,32 +59,40 @@ public final class WalletDao_Impl implements WalletDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `users` (`id`,`role`,`username`,`interestsCsv`,`explorationPreference`,`companyName`,`companyCategory`,`maxDiscountPercent`) VALUES (nullif(?, 0),?,?,?,?,?,?,?)";
+        return "INSERT OR REPLACE INTO `users` (`id`,`role`,`username`,`email`,`token`,`hasCompletedOnboarding`,`interestsCsv`,`explorationPreference`,`companyName`,`companyCategory`,`maxDiscountPercent`) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
       protected void bind(@NonNull final SupportSQLiteStatement statement,
           @NonNull final UserEntity entity) {
-        statement.bindLong(1, entity.getId());
+        statement.bindString(1, entity.getId());
         final String _tmp = __converters.fromUserRole(entity.getRole());
         statement.bindString(2, _tmp);
         statement.bindString(3, entity.getUsername());
-        statement.bindString(4, entity.getInterestsCsv());
-        statement.bindLong(5, entity.getExplorationPreference());
-        if (entity.getCompanyName() == null) {
-          statement.bindNull(6);
+        statement.bindString(4, entity.getEmail());
+        if (entity.getToken() == null) {
+          statement.bindNull(5);
         } else {
-          statement.bindString(6, entity.getCompanyName());
+          statement.bindString(5, entity.getToken());
+        }
+        final int _tmp_1 = entity.getHasCompletedOnboarding() ? 1 : 0;
+        statement.bindLong(6, _tmp_1);
+        statement.bindString(7, entity.getInterestsCsv());
+        statement.bindLong(8, entity.getExplorationPreference());
+        if (entity.getCompanyName() == null) {
+          statement.bindNull(9);
+        } else {
+          statement.bindString(9, entity.getCompanyName());
         }
         if (entity.getCompanyCategory() == null) {
-          statement.bindNull(7);
+          statement.bindNull(10);
         } else {
-          statement.bindString(7, entity.getCompanyCategory());
+          statement.bindString(10, entity.getCompanyCategory());
         }
         if (entity.getMaxDiscountPercent() == null) {
-          statement.bindNull(8);
+          statement.bindNull(11);
         } else {
-          statement.bindLong(8, entity.getMaxDiscountPercent());
+          statement.bindLong(11, entity.getMaxDiscountPercent());
         }
       }
     };
@@ -99,7 +107,7 @@ public final class WalletDao_Impl implements WalletDao {
       protected void bind(@NonNull final SupportSQLiteStatement statement,
           @NonNull final OfferEntity entity) {
         statement.bindString(1, entity.getId());
-        statement.bindLong(2, entity.getUserId());
+        statement.bindString(2, entity.getUserId());
         statement.bindString(3, entity.getTitle());
         statement.bindLong(4, entity.getDiscountPercent());
         statement.bindDouble(5, entity.getDistanceKm());
@@ -122,7 +130,7 @@ public final class WalletDao_Impl implements WalletDao {
       @Override
       protected void bind(@NonNull final SupportSQLiteStatement statement,
           @NonNull final RewardInventoryEntity entity) {
-        statement.bindLong(1, entity.getUserId());
+        statement.bindString(1, entity.getUserId());
         statement.bindLong(2, entity.getCoins());
         statement.bindLong(3, entity.getBoosts());
         statement.bindLong(4, entity.getStreakDays());
@@ -144,7 +152,7 @@ public final class WalletDao_Impl implements WalletDao {
       protected void bind(@NonNull final SupportSQLiteStatement statement,
           @NonNull final OfferEntity entity) {
         statement.bindString(1, entity.getId());
-        statement.bindLong(2, entity.getUserId());
+        statement.bindString(2, entity.getUserId());
         statement.bindString(3, entity.getTitle());
         statement.bindLong(4, entity.getDiscountPercent());
         statement.bindDouble(5, entity.getDistanceKm());
@@ -347,7 +355,7 @@ public final class WalletDao_Impl implements WalletDao {
 
   @Override
   public Flow<UserEntity> observeLatestUser() {
-    final String _sql = "SELECT * FROM users ORDER BY id DESC LIMIT 1";
+    final String _sql = "SELECT * FROM users LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"users"}, new Callable<UserEntity>() {
       @Override
@@ -358,6 +366,9 @@ public final class WalletDao_Impl implements WalletDao {
           final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
           final int _cursorIndexOfRole = CursorUtil.getColumnIndexOrThrow(_cursor, "role");
           final int _cursorIndexOfUsername = CursorUtil.getColumnIndexOrThrow(_cursor, "username");
+          final int _cursorIndexOfEmail = CursorUtil.getColumnIndexOrThrow(_cursor, "email");
+          final int _cursorIndexOfToken = CursorUtil.getColumnIndexOrThrow(_cursor, "token");
+          final int _cursorIndexOfHasCompletedOnboarding = CursorUtil.getColumnIndexOrThrow(_cursor, "hasCompletedOnboarding");
           final int _cursorIndexOfInterestsCsv = CursorUtil.getColumnIndexOrThrow(_cursor, "interestsCsv");
           final int _cursorIndexOfExplorationPreference = CursorUtil.getColumnIndexOrThrow(_cursor, "explorationPreference");
           final int _cursorIndexOfCompanyName = CursorUtil.getColumnIndexOrThrow(_cursor, "companyName");
@@ -365,14 +376,26 @@ public final class WalletDao_Impl implements WalletDao {
           final int _cursorIndexOfMaxDiscountPercent = CursorUtil.getColumnIndexOrThrow(_cursor, "maxDiscountPercent");
           final UserEntity _result;
           if (_cursor.moveToFirst()) {
-            final int _tmpId;
-            _tmpId = _cursor.getInt(_cursorIndexOfId);
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
             final UserRole _tmpRole;
             final String _tmp;
             _tmp = _cursor.getString(_cursorIndexOfRole);
             _tmpRole = __converters.toUserRole(_tmp);
             final String _tmpUsername;
             _tmpUsername = _cursor.getString(_cursorIndexOfUsername);
+            final String _tmpEmail;
+            _tmpEmail = _cursor.getString(_cursorIndexOfEmail);
+            final String _tmpToken;
+            if (_cursor.isNull(_cursorIndexOfToken)) {
+              _tmpToken = null;
+            } else {
+              _tmpToken = _cursor.getString(_cursorIndexOfToken);
+            }
+            final boolean _tmpHasCompletedOnboarding;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfHasCompletedOnboarding);
+            _tmpHasCompletedOnboarding = _tmp_1 != 0;
             final String _tmpInterestsCsv;
             _tmpInterestsCsv = _cursor.getString(_cursorIndexOfInterestsCsv);
             final int _tmpExplorationPreference;
@@ -395,7 +418,7 @@ public final class WalletDao_Impl implements WalletDao {
             } else {
               _tmpMaxDiscountPercent = _cursor.getInt(_cursorIndexOfMaxDiscountPercent);
             }
-            _result = new UserEntity(_tmpId,_tmpRole,_tmpUsername,_tmpInterestsCsv,_tmpExplorationPreference,_tmpCompanyName,_tmpCompanyCategory,_tmpMaxDiscountPercent);
+            _result = new UserEntity(_tmpId,_tmpRole,_tmpUsername,_tmpEmail,_tmpToken,_tmpHasCompletedOnboarding,_tmpInterestsCsv,_tmpExplorationPreference,_tmpCompanyName,_tmpCompanyCategory,_tmpMaxDiscountPercent);
           } else {
             _result = null;
           }
@@ -413,11 +436,90 @@ public final class WalletDao_Impl implements WalletDao {
   }
 
   @Override
-  public Flow<List<OfferEntity>> observeOffersForUser(final int userId) {
+  public Object getLatestUser(final Continuation<? super UserEntity> $completion) {
+    final String _sql = "SELECT * FROM users LIMIT 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<UserEntity>() {
+      @Override
+      @Nullable
+      public UserEntity call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfRole = CursorUtil.getColumnIndexOrThrow(_cursor, "role");
+          final int _cursorIndexOfUsername = CursorUtil.getColumnIndexOrThrow(_cursor, "username");
+          final int _cursorIndexOfEmail = CursorUtil.getColumnIndexOrThrow(_cursor, "email");
+          final int _cursorIndexOfToken = CursorUtil.getColumnIndexOrThrow(_cursor, "token");
+          final int _cursorIndexOfHasCompletedOnboarding = CursorUtil.getColumnIndexOrThrow(_cursor, "hasCompletedOnboarding");
+          final int _cursorIndexOfInterestsCsv = CursorUtil.getColumnIndexOrThrow(_cursor, "interestsCsv");
+          final int _cursorIndexOfExplorationPreference = CursorUtil.getColumnIndexOrThrow(_cursor, "explorationPreference");
+          final int _cursorIndexOfCompanyName = CursorUtil.getColumnIndexOrThrow(_cursor, "companyName");
+          final int _cursorIndexOfCompanyCategory = CursorUtil.getColumnIndexOrThrow(_cursor, "companyCategory");
+          final int _cursorIndexOfMaxDiscountPercent = CursorUtil.getColumnIndexOrThrow(_cursor, "maxDiscountPercent");
+          final UserEntity _result;
+          if (_cursor.moveToFirst()) {
+            final String _tmpId;
+            _tmpId = _cursor.getString(_cursorIndexOfId);
+            final UserRole _tmpRole;
+            final String _tmp;
+            _tmp = _cursor.getString(_cursorIndexOfRole);
+            _tmpRole = __converters.toUserRole(_tmp);
+            final String _tmpUsername;
+            _tmpUsername = _cursor.getString(_cursorIndexOfUsername);
+            final String _tmpEmail;
+            _tmpEmail = _cursor.getString(_cursorIndexOfEmail);
+            final String _tmpToken;
+            if (_cursor.isNull(_cursorIndexOfToken)) {
+              _tmpToken = null;
+            } else {
+              _tmpToken = _cursor.getString(_cursorIndexOfToken);
+            }
+            final boolean _tmpHasCompletedOnboarding;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfHasCompletedOnboarding);
+            _tmpHasCompletedOnboarding = _tmp_1 != 0;
+            final String _tmpInterestsCsv;
+            _tmpInterestsCsv = _cursor.getString(_cursorIndexOfInterestsCsv);
+            final int _tmpExplorationPreference;
+            _tmpExplorationPreference = _cursor.getInt(_cursorIndexOfExplorationPreference);
+            final String _tmpCompanyName;
+            if (_cursor.isNull(_cursorIndexOfCompanyName)) {
+              _tmpCompanyName = null;
+            } else {
+              _tmpCompanyName = _cursor.getString(_cursorIndexOfCompanyName);
+            }
+            final String _tmpCompanyCategory;
+            if (_cursor.isNull(_cursorIndexOfCompanyCategory)) {
+              _tmpCompanyCategory = null;
+            } else {
+              _tmpCompanyCategory = _cursor.getString(_cursorIndexOfCompanyCategory);
+            }
+            final Integer _tmpMaxDiscountPercent;
+            if (_cursor.isNull(_cursorIndexOfMaxDiscountPercent)) {
+              _tmpMaxDiscountPercent = null;
+            } else {
+              _tmpMaxDiscountPercent = _cursor.getInt(_cursorIndexOfMaxDiscountPercent);
+            }
+            _result = new UserEntity(_tmpId,_tmpRole,_tmpUsername,_tmpEmail,_tmpToken,_tmpHasCompletedOnboarding,_tmpInterestsCsv,_tmpExplorationPreference,_tmpCompanyName,_tmpCompanyCategory,_tmpMaxDiscountPercent);
+          } else {
+            _result = null;
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Flow<List<OfferEntity>> observeOffersForUser(final String userId) {
     final String _sql = "SELECT * FROM offers WHERE userId = ?";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
-    _statement.bindLong(_argIndex, userId);
+    _statement.bindString(_argIndex, userId);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"offers"}, new Callable<List<OfferEntity>>() {
       @Override
       @NonNull
@@ -440,8 +542,8 @@ public final class WalletDao_Impl implements WalletDao {
             final OfferEntity _item;
             final String _tmpId;
             _tmpId = _cursor.getString(_cursorIndexOfId);
-            final int _tmpUserId;
-            _tmpUserId = _cursor.getInt(_cursorIndexOfUserId);
+            final String _tmpUserId;
+            _tmpUserId = _cursor.getString(_cursorIndexOfUserId);
             final String _tmpTitle;
             _tmpTitle = _cursor.getString(_cursorIndexOfTitle);
             final int _tmpDiscountPercent;
@@ -507,8 +609,8 @@ public final class WalletDao_Impl implements WalletDao {
           if (_cursor.moveToFirst()) {
             final String _tmpId;
             _tmpId = _cursor.getString(_cursorIndexOfId);
-            final int _tmpUserId;
-            _tmpUserId = _cursor.getInt(_cursorIndexOfUserId);
+            final String _tmpUserId;
+            _tmpUserId = _cursor.getString(_cursorIndexOfUserId);
             final String _tmpTitle;
             _tmpTitle = _cursor.getString(_cursorIndexOfTitle);
             final int _tmpDiscountPercent;
@@ -543,11 +645,11 @@ public final class WalletDao_Impl implements WalletDao {
   }
 
   @Override
-  public Flow<RewardInventoryEntity> observeInventory(final int userId) {
+  public Flow<RewardInventoryEntity> observeInventory(final String userId) {
     final String _sql = "SELECT * FROM reward_inventory WHERE userId = ? LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
-    _statement.bindLong(_argIndex, userId);
+    _statement.bindString(_argIndex, userId);
     return CoroutinesRoom.createFlow(__db, false, new String[] {"reward_inventory"}, new Callable<RewardInventoryEntity>() {
       @Override
       @Nullable
@@ -565,8 +667,8 @@ public final class WalletDao_Impl implements WalletDao {
           final int _cursorIndexOfTimeExtensionCount = CursorUtil.getColumnIndexOrThrow(_cursor, "timeExtensionCount");
           final RewardInventoryEntity _result;
           if (_cursor.moveToFirst()) {
-            final int _tmpUserId;
-            _tmpUserId = _cursor.getInt(_cursorIndexOfUserId);
+            final String _tmpUserId;
+            _tmpUserId = _cursor.getString(_cursorIndexOfUserId);
             final int _tmpCoins;
             _tmpCoins = _cursor.getInt(_cursorIndexOfCoins);
             final int _tmpBoosts;
@@ -601,12 +703,12 @@ public final class WalletDao_Impl implements WalletDao {
   }
 
   @Override
-  public Object getInventoryByUserId(final int userId,
+  public Object getInventoryByUserId(final String userId,
       final Continuation<? super RewardInventoryEntity> $completion) {
     final String _sql = "SELECT * FROM reward_inventory WHERE userId = ? LIMIT 1";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 1);
     int _argIndex = 1;
-    _statement.bindLong(_argIndex, userId);
+    _statement.bindString(_argIndex, userId);
     final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
     return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<RewardInventoryEntity>() {
       @Override
@@ -625,8 +727,8 @@ public final class WalletDao_Impl implements WalletDao {
           final int _cursorIndexOfTimeExtensionCount = CursorUtil.getColumnIndexOrThrow(_cursor, "timeExtensionCount");
           final RewardInventoryEntity _result;
           if (_cursor.moveToFirst()) {
-            final int _tmpUserId;
-            _tmpUserId = _cursor.getInt(_cursorIndexOfUserId);
+            final String _tmpUserId;
+            _tmpUserId = _cursor.getString(_cursorIndexOfUserId);
             final int _tmpCoins;
             _tmpCoins = _cursor.getInt(_cursorIndexOfCoins);
             final int _tmpBoosts;

@@ -37,12 +37,14 @@ import com.generativecity.wallet.ui.components.QrCodeDialog
 import com.generativecity.wallet.ui.screens.*
 import com.generativecity.wallet.utils.DateTimeUtils
 import com.generativecity.wallet.viewmodel.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun AppNavGraph(factory: AppViewModelFactory) {
     val navController = rememberNavController()
 
     val authViewModel: AuthViewModel = viewModel(factory = factory)
+    val homeViewModel: HomeViewModel = viewModel(factory = factory)
     val walletViewModel: WalletViewModel = viewModel(factory = factory)
     val exploreViewModel: ExploreViewModel = viewModel(factory = factory)
     val notificationsViewModel: NotificationsViewModel = viewModel(factory = factory)
@@ -58,6 +60,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
     LaunchedEffect(currentUser?.id) {
         currentUser?.let { user ->
             if (user.role == UserRole.USER) {
+                homeViewModel.refresh()
                 walletViewModel.observeOffers(user.id)
                 notificationsViewModel.observe(user.id)
                 rouletteViewModel.startTimer()
@@ -77,10 +80,22 @@ fun AppNavGraph(factory: AppViewModelFactory) {
         }
     }
 
+    // AUTH & ONBOARDING FLOW
     if (!authState.isLoggedIn) {
         LoginScreen(
-            onUserLogin = authViewModel::loginUser,
-            onCompanyLogin = authViewModel::loginCompany
+            onLogin = authViewModel::login,
+            onRegister = authViewModel::register,
+            isLoading = authState.isLoading,
+            error = authState.error,
+            onClearError = authViewModel::clearError
+        )
+        return
+    }
+
+    if (!authState.onboardingCompleted && currentUser?.role == UserRole.USER) {
+        OnboardingScreen(
+            onComplete = authViewModel::completeOnboarding,
+            isLoading = authState.isLoading
         )
         return
     }
@@ -102,6 +117,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
     }
 
     val walletState by walletViewModel.uiState.collectAsState()
+    val homeState by homeViewModel.uiState.collectAsState()
     val exploreState by exploreViewModel.uiState.collectAsState()
     val rouletteState by rouletteViewModel.uiState.collectAsState()
     val notificationsState by notificationsViewModel.uiState.collectAsState()
@@ -178,6 +194,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
         ) {
             composable(BottomNavItem.Home.route) {
                 HomeScreen(
+                    homeState = homeState,
                     walletState = walletState,
                     notificationsState = notificationsState,
                     onUseOffer = { offerId ->
@@ -187,6 +204,8 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                     onAcceptNotification = notificationsViewModel::accept,
                     onInstantPayNotification = notificationsViewModel::instantPay,
                     onOpenNotificationCoupon = { navController.navigate("exploreDetail/$it") },
+                    onClaimFromAi = { coupon -> homeViewModel.claim(coupon) },
+                    onPayNowLive = { couponId -> navController.navigate("payNow/$couponId") },
                     onApplyDouble = { offerId -> 
                         currentUser?.let { notificationsViewModel.applyDoubleOrNothing(it.id, offerId) }
                     },
@@ -194,6 +213,26 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                         currentUser?.let { notificationsViewModel.applyTimeExtension(it.id, offerId) }
                     }
                 )
+            }
+
+            composable(
+                route = "payNow/{couponId}",
+                arguments = listOf(navArgument("couponId") { type = NavType.StringType })
+            ) { backStack ->
+                val couponId = backStack.arguments?.getString("couponId").orEmpty()
+                val coupon = homeState.feed?.live_opportunities?.firstOrNull { it.id == couponId }
+                if (coupon == null) {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    PayNowScreen(
+                        coupon = coupon,
+                        onBack = { navController.popBackStack() },
+                        onPaymentSuccess = {
+                            homeViewModel.claim(coupon)
+                            navController.popBackStack()
+                        }
+                    )
+                }
             }
 
             composable(BottomNavItem.Explore.route) {
@@ -247,13 +286,58 @@ fun AppNavGraph(factory: AppViewModelFactory) {
         }
 
         val selectedOfferId = walletState.selectedOfferIdForQr
-        if (selectedOfferId != null && currentUser != null) {
-            QrCodeDialog(
-                payload = DateTimeUtils.buildQrPayload(currentUser.id, selectedOfferId),
-                onDismiss = {
-                    walletViewModel.closeQr()
+        val qrActivatedAt = if (selectedOfferId == null) null else walletState.qrActivatedAtEpochMillis[selectedOfferId]
+
+        // Global QR expiry watcher (keeps expiring even if dialog closed)
+        LaunchedEffect(walletState.qrActivatedAtEpochMillis) {
+            while (true) {
+                val now = System.currentTimeMillis()
+                val expired = walletState.qrActivatedAtEpochMillis
+                    .filterValues { startedAt -> (startedAt + 15 * 60 * 1000L) <= now }
+                    .keys
+                expired.forEach { offerId ->
+                    homeViewModel.redeem(offerId)
+                    walletViewModel.redeemOffer(offerId)
+                    walletViewModel.clearQrActivation(offerId)
+                    if (walletState.selectedOfferIdForQr == offerId) {
+                        walletViewModel.closeQr()
+                    }
                 }
-            )
+                delay(1_000)
+            }
+        }
+
+        if (selectedOfferId != null && currentUser != null) {
+            if (qrActivatedAt == null) {
+                AlertDialog(
+                    onDismissRequest = { walletViewModel.closeQr() },
+                    title = { Text("Activate QR-code?", fontWeight = FontWeight.Black) },
+                    text = {
+                        Text("Once activated, this QR-code is valid for 15 minutes. After it expires, the offer will be removed.")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { walletViewModel.activateQr(selectedOfferId) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316))
+                        ) {
+                            Text("Activate (15 min)", fontWeight = FontWeight.Black)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { walletViewModel.closeQr() }) {
+                            Text("Not now")
+                        }
+                    }
+                )
+            } else {
+                val remainingSeconds = ((qrActivatedAt + 15 * 60 * 1000L) - System.currentTimeMillis())
+                    .coerceAtLeast(0) / 1000
+                QrCodeDialog(
+                    payload = DateTimeUtils.buildQrPayload(currentUser.id, selectedOfferId),
+                    onDismiss = { walletViewModel.closeQr() },
+                    remainingSeconds = remainingSeconds
+                )
+            }
         }
     }
 }

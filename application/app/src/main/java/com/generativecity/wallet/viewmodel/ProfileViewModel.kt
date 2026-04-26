@@ -20,7 +20,7 @@ class ProfileViewModel(
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    fun observeInventory(userId: Int) {
+    fun observeInventory(userId: String) {
         viewModelScope.launch {
             rewardRepository.markDailyLogin(userId)
             rewardRepository.observeInventory(userId).collect { inventory ->

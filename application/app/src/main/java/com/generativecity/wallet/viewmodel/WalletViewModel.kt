@@ -19,7 +19,8 @@ data class WalletUiState(
     val activeOffers: List<OfferEntity> = emptyList(),
     val savedOffers: List<OfferEntity> = emptyList(),
     val redeemedOffers: List<OfferEntity> = emptyList(),
-    val selectedOfferIdForQr: String? = null
+    val selectedOfferIdForQr: String? = null,
+    val qrActivatedAtEpochMillis: Map<String, Long> = emptyMap()
 )
 
 class WalletViewModel(
@@ -32,7 +33,7 @@ class WalletViewModel(
     private val _events = MutableSharedFlow<String>()
     val events: SharedFlow<String> = _events.asSharedFlow()
 
-    fun observeOffers(userId: Int) {
+    fun observeOffers(userId: String) {
         viewModelScope.launch {
             offerRepository.observeOffers(userId).collect { offers ->
                 _uiState.update {
@@ -50,7 +51,7 @@ class WalletViewModel(
         }
     }
 
-    fun refreshGeneratedOffer(userId: Int) {
+    fun refreshGeneratedOffer(userId: String) {
         viewModelScope.launch {
             val generated = generatePersonalizedOfferUseCase(userId)
             offerRepository.persistGeneratedOffer(userId, generated)
@@ -84,5 +85,20 @@ class WalletViewModel(
 
     fun closeQr() {
         _uiState.update { it.copy(selectedOfferIdForQr = null) }
+    }
+
+    fun activateQr(offerId: String) {
+        val now = System.currentTimeMillis()
+        _uiState.update { state ->
+            if (state.qrActivatedAtEpochMillis.containsKey(offerId)) state
+            else state.copy(qrActivatedAtEpochMillis = state.qrActivatedAtEpochMillis + (offerId to now))
+        }
+    }
+
+    fun clearQrActivation(offerId: String) {
+        _uiState.update { state ->
+            if (!state.qrActivatedAtEpochMillis.containsKey(offerId)) state
+            else state.copy(qrActivatedAtEpochMillis = state.qrActivatedAtEpochMillis - offerId)
+        }
     }
 }

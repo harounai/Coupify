@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,13 +31,16 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.generativecity.wallet.data.local.OfferEntity
 import com.generativecity.wallet.data.model.OfferStatus
-import com.generativecity.wallet.data.remote.MockData
+import com.generativecity.wallet.data.remote.CouponInstanceDto
 import com.generativecity.wallet.ui.components.OfferCard
+import com.generativecity.wallet.viewmodel.HomeUiState
 import com.generativecity.wallet.viewmodel.NotificationsUiState
 import com.generativecity.wallet.viewmodel.WalletUiState
+import kotlin.math.ceil
 
 @Composable
 fun HomeScreen(
+    homeState: HomeUiState,
     walletState: WalletUiState,
     notificationsState: NotificationsUiState,
     onUseOffer: (String) -> Unit,
@@ -44,56 +48,134 @@ fun HomeScreen(
     onAcceptNotification: (String) -> Unit,
     onInstantPayNotification: (String) -> Unit,
     onOpenNotificationCoupon: (String) -> Unit,
+    onClaimFromAi: (CouponInstanceDto) -> Unit,
+    onPayNowLive: (String) -> Unit,
     onApplyDouble: (String) -> Unit = {},
     onApplyTime: (String) -> Unit = {}
 ) {
+    val dismissedLiveIds = remember { mutableStateListOf<String>() }
+    val acceptedLiveIds = remember { mutableStateListOf<String>() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8FAFC))
     ) {
+        if (homeState.isLoading && homeState.feed == null) {
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color(0xFFF97316)
+            )
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 120.dp)
         ) {
+            homeState.error?.let { msg ->
+                item {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Failed to load offers", fontWeight = FontWeight.Bold, color = Color(0xFF9A3412))
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(msg, color = Color(0xFF9A3412), style = MaterialTheme.typography.bodySmall)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "Tip: make sure emulator can open http://10.0.2.2:8000/health",
+                                color = Color(0xFF9A3412),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
             item {
                 HomeHeader(
-                    userName = "Alex",
-                    streakDays = 7
+                    userName = homeState.feed?.user?.display_name ?: "—",
+                    streakDays = homeState.feed?.streak?.current_days ?: 0
                 )
             }
 
-            // 1. LIVE OPPORTUNITIES (Highest Priority)
-            val liveNotifications = notificationsState.notifications.filter { it.status == OfferStatus.ACTIVE }
-            if (liveNotifications.isNotEmpty()) {
-                item { SectionTitle("Live Opportunities", isHighPriority = true) }
-                items(liveNotifications, key = { "notif_${it.id}" }) { notification ->
+            // 1. CLAIMED REWARDS (Pinned at top)
+            val claimedFromBackend = homeState.feed?.claimed_rewards_today ?: emptyList()
+            val claimedOffers = claimedFromBackend.map { c ->
+                OfferEntity(
+                    id = c.id,
+                    userId = homeState.feed?.user?.id ?: "",
+                    businessName = c.business.name,
+                    title = "${c.template.title} @ ${c.business.name}",
+                    discountPercent = c.discount_percent,
+                    status = OfferStatus.SAVED,
+                    expiryEpochMillis = System.currentTimeMillis() + (c.template.duration_hours * 60 * 60 * 1000),
+                    distanceKm = c.business.distance_km ?: 0.0,
+                    category = c.business.category,
+                    imageUrl = c.business.image_url,
+                    createdEpochMillis = System.currentTimeMillis()
+                )
+            }
+            if (claimedOffers.isNotEmpty()) {
+                item { SectionTitle("Claimed Rewards") }
+                items(claimedOffers, key = { "claimed_${it.id}" }) { offer ->
+                    val activatedAt = walletState.qrActivatedAtEpochMillis[offer.id]
+                    val remaining = if (activatedAt == null) null else {
+                        val expiresAt = activatedAt + 15 * 60 * 1000L
+                        ceil(((expiresAt - System.currentTimeMillis()).coerceAtLeast(0)).toDouble() / 1000.0).toLong()
+                    }
                     Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                        ModernNotificationCard(
-                            notification = notification,
-                            decisionSeconds = notificationsState.decisionSecondsRemaining[notification.id] ?: 0,
-                            isProcessing = notificationsState.paymentInProgressOfferId == notification.id,
-                            doubleCount = notificationsState.doubleOrNothingCount,
-                            timeCount = notificationsState.timeExtensionCount,
-                            onDecline = { onDeclineNotification(notification.id) },
-                            onAccept = { onAcceptNotification(notification.id) },
-                            onInstantPay = { onInstantPayNotification(notification.id) },
-                            onApplyDouble = { onApplyDouble(notification.id) },
-                            onApplyTime = { onApplyTime(notification.id) }
+                        ClaimedRewardCard(
+                            offer = offer,
+                            onOpen = { onUseOffer(offer.id) },
+                            qrRemainingSeconds = remaining
                         )
                     }
                 }
             }
 
-            // 2. CLAIMED REWARDS (Pinned at top)
-            val claimedOffers = (walletState.activeOffers + walletState.savedOffers + walletState.redeemedOffers).filter { 
-                it.status == OfferStatus.NOTIFICATION_ACCEPTED || it.status == OfferStatus.INSTANT_PAID || it.status == OfferStatus.SAVED
-            }
-            if (claimedOffers.isNotEmpty()) {
-                item { SectionTitle("Claimed Rewards") }
-                items(claimedOffers, key = { "claimed_${it.id}" }) { offer ->
+            // 2. LIVE OPPORTUNITIES (AI-ranked)
+            val liveFromAi = (homeState.feed?.live_opportunities ?: emptyList())
+                .filterNot { dismissedLiveIds.contains(it.id) || acceptedLiveIds.contains(it.id) }
+                .take(3)
+            if (liveFromAi.isNotEmpty()) {
+                item { SectionTitle("Live Opportunities", isHighPriority = true) }
+                items(liveFromAi, key = { "ai_${it.id}" }) { coupon ->
+                    val currentUserId = homeState.feed?.user?.id ?: ""
+                    val offer = OfferEntity(
+                        id = coupon.id,
+                        userId = currentUserId,
+                        title = "${coupon.template.title} @ ${coupon.business.name}",
+                        discountPercent = coupon.discount_percent,
+                        distanceKm = coupon.business.distance_km ?: 0.0,
+                        createdEpochMillis = System.currentTimeMillis(),
+                        expiryEpochMillis = System.currentTimeMillis() + (coupon.template.duration_hours * 60 * 60 * 1000),
+                        businessName = coupon.business.name,
+                        category = coupon.business.category,
+                        imageUrl = coupon.business.image_url,
+                        status = OfferStatus.ACTIVE
+                    )
                     Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                        ClaimedRewardCard(offer = offer, onOpen = { onUseOffer(offer.id) })
+                        LiveOpportunityCard(
+                            offer = offer,
+                            onDecline = { dismissedLiveIds.add(coupon.id) },
+                            onAccept = {
+                                acceptedLiveIds.add(coupon.id)
+                                onClaimFromAi(coupon)
+                            },
+                            onPayNow = { onPayNowLive(coupon.id) }
+                        )
+                    }
+                }
+            } else {
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
+                        Text(
+                            "No live opportunities yet. If this persists, check backend connectivity.",
+                            color = Color(0xFF64748B)
+                        )
                     }
                 }
             }
@@ -101,21 +183,22 @@ fun HomeScreen(
             // 3. OFFER OF THE DAY
             item {
                 SectionTitle("Offer of the Day")
-                val featuredOffer = MockData.businesses.first().let {
-                    OfferEntity(
-                        id = it.id, // Using real biz id to match detail logic
-                        userId = 0,
-                        businessName = it.name,
-                        title = "Exclusive Weekend Pass",
-                        discountPercent = 40,
+                val otd = homeState.feed?.offer_of_the_day
+                if (otd != null) {
+                    val featuredOffer = OfferEntity(
+                        id = otd.business.id,
+                        userId = homeState.feed?.user?.id ?: "",
+                        businessName = otd.business.name,
+                        title = "${otd.template.title} @ ${otd.business.name}",
+                        discountPercent = otd.discount_percent,
                         status = OfferStatus.ACTIVE,
-                        expiryEpochMillis = System.currentTimeMillis() + 3600000,
-                        distanceKm = it.distanceKm,
-                        category = it.category,
+                        expiryEpochMillis = System.currentTimeMillis() + (otd.template.duration_hours * 60 * 60 * 1000),
+                        distanceKm = otd.business.distance_km ?: 0.0,
+                        category = otd.business.category,
                         createdEpochMillis = System.currentTimeMillis()
                     )
+                    FeaturedDealCard(offer = featuredOffer, onUse = { onOpenNotificationCoupon(featuredOffer.id) })
                 }
-                FeaturedDealCard(offer = featuredOffer, onUse = { onOpenNotificationCoupon(featuredOffer.id) })
             }
 
             // 4. NEW IN TOWN
@@ -125,10 +208,153 @@ fun HomeScreen(
                     contentPadding = PaddingValues(horizontal = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(MockData.businesses.takeLast(3)) { biz ->
-                        NewInTownCard(biz, onOpen = { onOpenNotificationCoupon(biz.id) })
+                    val newBiz = homeState.feed?.new_in_town ?: emptyList()
+                    items(newBiz) { biz ->
+                        NewInTownCard(
+                            com.generativecity.wallet.data.model.Business(
+                                id = biz.id,
+                                name = biz.name,
+                                category = biz.category,
+                                distanceKm = biz.distance_km ?: 0.0,
+                                demandLevel = biz.demand_level ?: 50,
+                                imageUrl = biz.image_url
+                            ),
+                            onOpen = { onOpenNotificationCoupon(biz.id) }
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveOpportunityCard(
+    offer: OfferEntity,
+    onDecline: () -> Unit,
+    onAccept: () -> Unit,
+    onPayNow: () -> Unit
+) {
+    var acceptedAnimating by remember { mutableStateOf(false) }
+    val checkScale by animateFloatAsState(
+        targetValue = if (acceptedAnimating) 1f else 0.6f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = ""
+    )
+    val cardAlpha by animateFloatAsState(
+        targetValue = if (acceptedAnimating) 0.85f else 1f,
+        animationSpec = tween(180),
+        label = ""
+    )
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(12.dp, RoundedCornerShape(28.dp)),
+        shape = RoundedCornerShape(28.dp),
+        color = Color.White
+    ) {
+        Column(modifier = Modifier.padding(18.dp).graphicsLayer(alpha = cardAlpha)) {
+            if (offer.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = offer.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(22.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(0xFFFFF7ED), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Bolt, null, tint = Color(0xFFF97316), modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "LIVE OPPORTUNITY",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFFF97316)
+                    )
+                    Text(offer.businessName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                }
+                Text(
+                    "${offer.discountPercent}% OFF",
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFF97316),
+                    fontSize = 16.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(offer.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Spacer(modifier = Modifier.height(14.dp))
+
+            AnimatedVisibility(
+                visible = acceptedAnimating,
+                enter = fadeIn(tween(150)) + scaleIn(tween(220)),
+                exit = fadeOut(tween(120))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .scale(checkScale)
+                            .background(Color(0xFFECFDF3), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Check, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Accepted — added to Claimed Rewards", color = Color(0xFF065F46), fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = onDecline,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Text("Decline", color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = {
+                        acceptedAnimating = true
+                        onAccept()
+                    },
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316))
+                ) {
+                    Text("Accept", fontWeight = FontWeight.Black, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = onPayNow,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+            ) {
+                Text("Pay Now (+5% OFF)", fontWeight = FontWeight.Black, fontSize = 15.sp)
             }
         }
     }
@@ -180,7 +406,7 @@ fun HomeHeader(userName: String, streakDays: Int) {
 }
 
 @Composable
-fun ClaimedRewardCard(offer: OfferEntity, onOpen: () -> Unit) {
+fun ClaimedRewardCard(offer: OfferEntity, onOpen: () -> Unit, qrRemainingSeconds: Long?) {
     Card(
         modifier = Modifier
             .fillMaxWidth(),
@@ -211,6 +437,25 @@ fun ClaimedRewardCard(offer: OfferEntity, onOpen: () -> Unit) {
                     color = Color(0xFFF97316),
                     fontSize = 18.sp
                 )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "Valid until end of day",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF94A3B8),
+                fontWeight = FontWeight.SemiBold
+            )
+            if (qrRemainingSeconds != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(color = Color(0xFFFFF7ED), shape = RoundedCornerShape(12.dp)) {
+                    Text(
+                        "QR active • ${qrRemainingSeconds / 60}:${String.format("%02d", qrRemainingSeconds % 60)} remaining",
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        color = Color(0xFFC2410C),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button(
@@ -258,7 +503,7 @@ fun FeaturedDealCard(offer: OfferEntity, onUse: () -> Unit) {
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
-                model = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5",
+                model = offer.imageUrl.ifBlank { "https://images.unsplash.com/photo-1555396273-367ea4eb4db5" },
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop

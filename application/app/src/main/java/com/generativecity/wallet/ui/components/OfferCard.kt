@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.generativecity.wallet.data.local.OfferEntity
 import com.generativecity.wallet.utils.DateTimeUtils
 
@@ -54,6 +56,30 @@ fun OfferCard(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (offer.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = offer.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(20.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFFFFEDD5), Color(0xFFF97316).copy(alpha = 0.35f))
+                            )
+                        )
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -70,7 +96,7 @@ fun OfferCard(
                         Icon(
                             imageVector = Icons.Default.LocalOffer,
                             contentDescription = null,
-                            tint = Color(0xFF0052FF),
+                            tint = Color(0xFFF97316),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -148,7 +174,7 @@ fun OfferCard(
                     .height(48.dp),
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0052FF)
+                    containerColor = Color(0xFFF97316)
                 )
             ) {
                 Text(
