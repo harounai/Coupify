@@ -6,11 +6,14 @@ import com.generativecity.wallet.data.model.UserRole
 
 @Entity(tableName = "users")
 data class UserEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey val id: String, // Changed to String to match backend UUID
     val role: UserRole,
     val username: String,
-    val interestsCsv: String,
-    val explorationPreference: Int,
+    val email: String,
+    val token: String? = null,
+    val hasCompletedOnboarding: Boolean = false,
+    val interestsCsv: String = "",
+    val explorationPreference: Int = 50,
     val companyName: String? = null,
     val companyCategory: String? = null,
     val maxDiscountPercent: Int? = null

@@ -29,7 +29,7 @@ class RouletteViewModel(
 
     private var lastSpinAt: Long = 0L
 
-    fun observeInventory(userId: Int) {
+    fun observeInventory(userId: String) {
         viewModelScope.launch {
             rewardRepository.observeInventory(userId).collect { inv ->
                 _uiState.update { it.copy(inventory = inv) }
@@ -65,7 +65,7 @@ class RouletteViewModel(
         return calendar.timeInMillis
     }
 
-    fun spin(userId: Int) {
+    fun spin(userId: String) {
         if (!_uiState.value.canSpin || _uiState.value.isSpinning) return
 
         viewModelScope.launch {
@@ -112,7 +112,7 @@ class RouletteViewModel(
         }
     }
 
-    private suspend fun applyReward(userId: Int, rewardType: String): String {
+    private suspend fun applyReward(userId: String, rewardType: String): String {
         val inventory = rewardRepository.getInventory(userId) ?: RewardInventoryEntity(userId = userId)
         val updated = when (rewardType) {
             "2x Coin" -> inventory.copy(doubleOrNothingCount = inventory.doubleOrNothingCount + 1)

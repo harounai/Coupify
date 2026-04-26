@@ -35,4 +35,13 @@ dist-ssr
 .env/
 __pycache__/
 
-application/app/build
+# Android / Gradle
+**/build/
+.gradle/
+*.apk
+*.aab
+
+# Local sqlite dbs
+*.db
+
+.venv

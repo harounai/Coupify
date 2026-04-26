@@ -7,15 +7,15 @@ import kotlinx.coroutines.flow.Flow
 class RewardRepository(
     private val walletDao: WalletDao
 ) {
-    fun observeInventory(userId: Int): Flow<RewardInventoryEntity?> = walletDao.observeInventory(userId)
+    fun observeInventory(userId: String): Flow<RewardInventoryEntity?> = walletDao.observeInventory(userId)
 
-    suspend fun getInventory(userId: Int): RewardInventoryEntity? = walletDao.getInventoryByUserId(userId)
+    suspend fun getInventory(userId: String): RewardInventoryEntity? = walletDao.getInventoryByUserId(userId)
 
     suspend fun updateInventory(inventory: RewardInventoryEntity) {
         walletDao.upsertInventory(inventory)
     }
 
-    suspend fun markDailyLogin(userId: Int) {
+    suspend fun markDailyLogin(userId: String) {
         val current = walletDao.getInventoryByUserId(userId) ?: RewardInventoryEntity(userId = userId)
         val now = System.currentTimeMillis()
         val oneDayMillis = 24L * 60L * 60L * 1000L

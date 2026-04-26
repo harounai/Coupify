@@ -7,7 +7,7 @@ import com.generativecity.wallet.data.model.OfferStatus
 @Entity(tableName = "offers")
 data class OfferEntity(
     @PrimaryKey val id: String,
-    val userId: Int,
+    val userId: String,
     val title: String,
     val discountPercent: Int,
     val distanceKm: Double,

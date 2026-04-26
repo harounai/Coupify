@@ -12,8 +12,11 @@ interface WalletDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertUser(user: UserEntity): Long
 
-    @Query("SELECT * FROM users ORDER BY id DESC LIMIT 1")
+    @Query("SELECT * FROM users LIMIT 1")
     fun observeLatestUser(): Flow<UserEntity?>
+
+    @Query("SELECT * FROM users LIMIT 1")
+    suspend fun getLatestUser(): UserEntity?
 
     @Query("DELETE FROM users")
     suspend fun clearUsers()
@@ -34,7 +37,7 @@ interface WalletDao {
     suspend fun updateOffer(offer: OfferEntity)
 
     @Query("SELECT * FROM offers WHERE userId = :userId")
-    fun observeOffersForUser(userId: Int): Flow<List<OfferEntity>>
+    fun observeOffersForUser(userId: String): Flow<List<OfferEntity>>
 
     @Query("SELECT * FROM offers WHERE id = :offerId LIMIT 1")
     suspend fun getOfferById(offerId: String): OfferEntity?
@@ -43,8 +46,8 @@ interface WalletDao {
     suspend fun upsertInventory(inventory: RewardInventoryEntity)
 
     @Query("SELECT * FROM reward_inventory WHERE userId = :userId LIMIT 1")
-    fun observeInventory(userId: Int): Flow<RewardInventoryEntity?>
+    fun observeInventory(userId: String): Flow<RewardInventoryEntity?>
 
     @Query("SELECT * FROM reward_inventory WHERE userId = :userId LIMIT 1")
-    suspend fun getInventoryByUserId(userId: Int): RewardInventoryEntity?
+    suspend fun getInventoryByUserId(userId: String): RewardInventoryEntity?
 }

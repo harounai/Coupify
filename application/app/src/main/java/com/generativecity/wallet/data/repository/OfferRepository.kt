@@ -21,9 +21,9 @@ class OfferRepository(
     private val offerApiService: OfferApiService,
     private val contextEngine: ContextEngine
 ) {
-    fun observeOffers(userId: Int): Flow<List<OfferEntity>> = walletDao.observeOffersForUser(userId)
+    fun observeOffers(userId: String): Flow<List<OfferEntity>> = walletDao.observeOffersForUser(userId)
 
-    suspend fun generatePersonalizedOffer(userId: Int): GeneratedOffer {
+    suspend fun generatePersonalizedOffer(userId: String): GeneratedOffer {
         val user = walletDao.observeLatestUser().first() ?: error("User must exist before generating offers")
         val weather = weatherApiService.getWeather()
         val demand = offerApiService.getMerchantDemand()
@@ -45,7 +45,7 @@ class OfferRepository(
         )
     }
 
-    suspend fun persistGeneratedOffer(userId: Int, offer: GeneratedOffer): String {
+    suspend fun persistGeneratedOffer(userId: String, offer: GeneratedOffer): String {
         val id = UUID.randomUUID().toString()
         walletDao.upsertOffer(
             OfferEntity(
@@ -65,7 +65,7 @@ class OfferRepository(
         return id
     }
 
-    suspend fun saveOfferFromMerchant(userId: Int, businessId: String) {
+    suspend fun saveOfferFromMerchant(userId: String, businessId: String) {
         val business = MockData.businesses.find { it.id == businessId } ?: return
         val coupon = MockData.coupons.find { it.category == business.category } ?: MockData.coupons.first()
         
@@ -95,7 +95,7 @@ class OfferRepository(
         walletDao.updateOffer(offer)
     }
 
-    suspend fun createOfferFromCompany(userId: Int, user: UserEntity): String {
+    suspend fun createOfferFromCompany(userId: String, user: UserEntity): String {
         val category = user.companyCategory ?: "food"
         val businessName = user.companyName ?: "Merchant"
         val maxDiscount = user.maxDiscountPercent ?: 20

@@ -26,7 +26,8 @@ import com.generativecity.wallet.utils.QrCodeGenerator
 @Composable
 fun QrCodeDialog(
     payload: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    remainingSeconds: Long
 ) {
     val image = QrCodeGenerator.generateQrCode(payload)
     
@@ -123,7 +124,7 @@ fun QrCodeDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                "Present this to the cashier",
+                                "Valid for 15 minutes • ${remainingSeconds / 60}:${String.format("%02d", remainingSeconds % 60)}",
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFFC2410C),

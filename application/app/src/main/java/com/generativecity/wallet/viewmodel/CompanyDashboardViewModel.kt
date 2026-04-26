@@ -22,7 +22,7 @@ class CompanyDashboardViewModel(
     private val _uiState = MutableStateFlow(CompanyDashboardUiState())
     val uiState: StateFlow<CompanyDashboardUiState> = _uiState.asStateFlow()
 
-    fun observeOffers(userId: Int) {
+    fun observeOffers(userId: String) {
         viewModelScope.launch {
             offerRepository.observeOffers(userId).collect { offers ->
                 _uiState.update { it.copy(activeOffers = offers) }
@@ -30,7 +30,7 @@ class CompanyDashboardViewModel(
         }
     }
 
-    fun generateSuggestion(userId: Int, user: UserEntity) {
+    fun generateSuggestion(userId: String, user: UserEntity) {
         viewModelScope.launch {
             offerRepository.createOfferFromCompany(userId, user)
             _uiState.update { it.copy(lastSuggestionMessage = "AI suggestion created for ${user.companyName}") }

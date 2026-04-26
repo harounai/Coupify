@@ -1,47 +1,74 @@
-# Mock FastAPI Voucher Service
+# City Spark Offers Backend (FastAPI + SQLite + Local Ollama AI)
 
-Simple FastAPI project with:
-- Mock authentication endpoint for two users
-- Mock daily voucher endpoint returning two vouchers per authenticated user
+Production-oriented local backend for the Android app.
 
-## Endpoints
+## Key properties
 
-- `POST /auth/login`
-  - Request body:
-    ```json
-    {
-      "username": "alice",
-      "password": "alice123"
-    }
-    ```
-  - Mock users:
-    - `alice` / `alice123`
-    - `bob` / `bob123`
-  - Response:
-    ```json
-    {
-      "access_token": "mock-token-alice",
-      "token_type": "bearer",
-      "expires_in_seconds": 3600
-    }
-    ```
+- **Fully local / offline**: no paid APIs, no API keys.
+- **DB-backed**: SQLite (`cityspark.db`) seeded on first run.
+- **AI decision engine**: ranks the home feed using **local Ollama** (`http://localhost:11434`).
+  - If Ollama is not running, the backend **falls back** to a deterministic heuristic ranking (distance/discount/demand).
 
-- `GET /voucher/daily`
-  - Requires header: `Authorization: Bearer <user-token>`
-  - Returns an array of 2 voucher records for the authenticated user
-  - Response:
-    - `b64image` (Base64 image string from files in `img/`)
-    - `headline` (string)
-    - `text` (string)
-    - `percent` (integer 0..100)
+## API (v1)
+
+All endpoints accept an offline user identity header:
+
+- `X-User-Id: user_alex` (default used by Android)
+
+### User profile & preferences
+
+- `GET /v1/users/me`
+- `PATCH /v1/users/me`
+
+### Streak tracking
+
+- `GET /v1/streaks/me`
+- `POST /v1/streaks/checkin`
+
+### Rewards & coupons (claim/store/redeem)
+
+- `GET /v1/coupons/templates`
+- `GET /v1/coupons/my`
+- `POST /v1/coupons/claim`
+- `POST /v1/coupons/{couponId}/redeem`
+
+### AI-driven home feed (core experience)
+
+- `GET /v1/home`
+  - Returns:
+    - **Live Opportunities** (AI-ranked)
+    - **Claimed Rewards Today** (pinned)
+    - **Offer of the Day**
+    - **New in Town**
+
+### AI debug (inspect prompt + raw LLM output)
+
+- `GET /v1/ai/debug/rank-home`
 
 ## Run locally
 
+### 1) Start Ollama (optional but recommended)
+
+In a separate terminal:
+
+- `ollama serve`
+- `ollama pull mistral`
+
+The backend calls `http://localhost:11434` with model `mistral` by default.
+
+### 2) Start backend
+
 ```bash
-python -m venv .venv
-.venv\\Scripts\\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open docs at: `http://127.0.0.1:8000/docs`
+Open docs at `http://127.0.0.1:8000/docs`.
+
+## Example Ollama prompt
+
+Call the debug endpoint:
+
+- `GET /v1/ai/debug/rank-home` (with `X-User-Id: user_alex`)
+
+It returns the exact `prompt` sent to Ollama, plus `raw_model_response` and parsed JSON.

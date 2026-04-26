@@ -9,7 +9,7 @@ object DateTimeUtils {
 
     fun formatExpiry(epochMillis: Long): String = timeFormat.format(Date(epochMillis))
 
-    fun buildQrPayload(userId: Int, offerId: String): String {
+    fun buildQrPayload(userId: String, offerId: String): String {
         return "user_id=$userId;offer_id=$offerId;timestamp=${System.currentTimeMillis()}"
     }
 }
