@@ -15,9 +15,11 @@ from app.routers.home import router as home_router
 from app.routers.onboarding import router as onboarding_router
 from app.routers.preferences import router as preferences_router
 from app.routers.notifications import router as notifications_router
+from app.routers.merchant import router as merchant_router
 from app.routers.streaks import router as streaks_router
 from app.routers.users import router as users_router
 from app.schemas import HealthResponse
+from app.services.db_migrations import ensure_sqlite_schema
 from app.services.seed_data import seed_if_empty
 from app.services.ai_notifier import run_notification_loop
 
@@ -25,6 +27,7 @@ from app.services.ai_notifier import run_notification_loop
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_sqlite_schema(engine)
     # Seed synchronously; small dataset.
     from sqlalchemy.orm import Session
 
@@ -70,3 +73,4 @@ app.include_router(auth_router, prefix=settings.api_v1_prefix)
 app.include_router(onboarding_router, prefix=settings.api_v1_prefix)
 app.include_router(preferences_router, prefix=settings.api_v1_prefix)
 app.include_router(notifications_router, prefix=settings.api_v1_prefix)
+app.include_router(merchant_router, prefix=settings.api_v1_prefix)

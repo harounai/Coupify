@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # AI notification loop
     ai_notification_enabled: bool = True
-    ai_notification_tick_seconds: int = 20  # fast for local testing; bump to 600+ for normal use
+    ai_notification_tick_seconds: int = 120  # fast for local testing; bump to 600+ for normal use
     ai_notification_max_per_user_per_day: int = 0  # 0 disables per-day cap (useful for local testing)
 
     # Firebase Cloud Messaging (FCM)

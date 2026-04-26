@@ -1,12 +1,12 @@
 package com.generativecity.wallet.ui.screens
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -18,17 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
 
 @Composable
 fun LoginScreen(
     onLogin: (String, String) -> Unit,
     onRegister: (String, String, String) -> Unit,
+    onRegisterCompany: (String, String, String, String) -> Unit,
+    onEnterMerchantMode: (String) -> Unit,
     isLoading: Boolean = false,
     error: String? = null,
     onClearError: () -> Unit
@@ -37,14 +39,13 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
-    val context = LocalContext.current
-    val logoBitmap = remember {
-        runCatching {
-            context.assets.open("coupify.png").use { input ->
-                BitmapFactory.decodeStream(input)
-            }
-        }.getOrNull()
-    }
+    var isCompany by remember { mutableStateOf(false) }
+    var companyBusinessId by remember { mutableStateOf("biz_coffee_1") }
+    var showMerchantDialog by remember { mutableStateOf(false) }
+    var merchantBusinessId by remember { mutableStateOf("biz_coffee_1") }
+    // NOTE: The repo currently does not include `coupify.png` in app assets/resources.
+    // Until you add the file under `application/app/src/main/assets/coupify.png`,
+    // we show a clean icon fallback so the header isn't blank.
 
     Box(
         modifier = Modifier
@@ -67,13 +68,12 @@ fun LoginScreen(
                     .background(Color(0xFFFFEDD5)),
                 contentAlignment = Alignment.Center
             ) {
-                if (logoBitmap != null) {
-                    Image(
-                        bitmap = logoBitmap.asImageBitmap(),
-                        contentDescription = "Coupify",
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.LocalOffer,
+                    contentDescription = "Coupify",
+                    tint = Color(0xFFF97316),
+                    modifier = Modifier.size(40.dp)
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -82,7 +82,12 @@ fun LoginScreen(
                 "Coupify",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF0F172A)
+                color = Color(0xFF0F172A),
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = { showMerchantDialog = true }
+                    )
+                }
             )
             Text(
                 if (isLoginMode) "Welcome back!" else "Create your account",
@@ -100,6 +105,15 @@ fun LoginScreen(
             ) {
                 Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (!isLoginMode) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Register as company", color = Color(0xFF0F172A), fontWeight = FontWeight.SemiBold)
+                            Switch(checked = isCompany, onCheckedChange = { isCompany = it })
+                        }
+
                         OutlinedTextField(
                             value = displayName,
                             onValueChange = { displayName = it },
@@ -108,6 +122,16 @@ fun LoginScreen(
                             leadingIcon = { Icon(Icons.Default.Person, null) },
                             shape = RoundedCornerShape(12.dp)
                         )
+
+                        if (isCompany) {
+                            OutlinedTextField(
+                                value = companyBusinessId,
+                                onValueChange = { companyBusinessId = it },
+                                label = { Text("Business ID (e.g. biz_coffee_1)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
                     }
 
                     OutlinedTextField(
@@ -138,7 +162,10 @@ fun LoginScreen(
                     Button(
                         onClick = {
                             if (isLoginMode) onLogin(email, password)
-                            else onRegister(email, password, displayName)
+                            else {
+                                if (isCompany) onRegisterCompany(email, password, displayName, companyBusinessId.trim())
+                                else onRegister(email, password, displayName)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -166,5 +193,42 @@ fun LoginScreen(
                 )
             }
         }
+    }
+
+    if (showMerchantDialog) {
+        AlertDialog(
+            onDismissRequest = { showMerchantDialog = false },
+            title = { Text("Merchant Mode") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Hidden merchant mode for hackathon demos.\nEnter a business id (e.g. biz_coffee_1).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF64748B)
+                    )
+                    OutlinedTextField(
+                        value = merchantBusinessId,
+                        onValueChange = { merchantBusinessId = it },
+                        label = { Text("Business ID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showMerchantDialog = false
+                        onEnterMerchantMode(merchantBusinessId.trim())
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    Text("Enter Merchant Mode", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMerchantDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }

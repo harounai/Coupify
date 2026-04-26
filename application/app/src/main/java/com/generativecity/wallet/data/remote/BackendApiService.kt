@@ -4,7 +4,13 @@ import retrofit2.http.*
 
 // Auth DTOs
 data class LoginRequestDto(val email: String, val password: String)
-data class RegisterRequestDto(val email: String, val password: String, val display_name: String)
+data class RegisterRequestDto(
+    val email: String,
+    val password: String,
+    val display_name: String,
+    val role: String = "USER",
+    val business_id: String? = null
+)
 data class AuthResponseDto(val access_token: String, val token_type: String, val user: UserProfileDto)
 
 // Survey/Preferences DTOs
@@ -25,6 +31,8 @@ data class UserProfileDto(
     val id: String,
     val display_name: String,
     val email: String? = null,
+    val role: String = "USER",
+    val business_id: String? = null,
     val interests: List<String> = emptyList(),
     val exploration_preference: Int = 50,
     val has_completed_onboarding: Boolean = false
@@ -108,6 +116,51 @@ data class NotificationInboxItemDto(
 
 data class RegisterDeviceRequestDto(
     val fcm_token: String
+
+// Merchant DTOs
+data class MerchantBusinessDto(
+    val id: String,
+    val name: String,
+    val category: String,
+    val lat: Double,
+    val lon: Double,
+    val image_url: String
+)
+
+data class MerchantRuleDto(
+    val business_id: String,
+    val max_discount_percent: Int,
+    val min_discount_percent: Int,
+    val quiet_hours_start: Int?,
+    val quiet_hours_end: Int?,
+    val goal: String,
+    val coupons_per_day: Int,
+    val coupons_total: Int,
+    val coupons_total_issued: Int,
+    val products: List<String>,
+    val rules_json: Map<String, Any?>,
+    val updated_at: String
+)
+
+data class MerchantRuleInDto(
+    val max_discount_percent: Int,
+    val min_discount_percent: Int,
+    val quiet_hours_start: Int? = null,
+    val quiet_hours_end: Int? = null,
+    val goal: String,
+    val coupons_per_day: Int = 50,
+    val coupons_total: Int = 1000,
+    val products: List<String> = emptyList(),
+    val rules_json: Map<String, Any?> = emptyMap()
+)
+
+data class MerchantStatsDto(
+    val business_id: String,
+    val day_key: String,
+    val impressions: Int,
+    val accepts: Int,
+    val declines: Int,
+    val redemptions: Int
 )
 
 interface BackendApiService {
@@ -120,6 +173,9 @@ interface BackendApiService {
 
     @GET("v1/auth/me")
     suspend fun getMe(@Header("Authorization") token: String): UserProfileDto
+
+    @POST("v1/auth/logout")
+    suspend fun logout(@Header("Authorization") token: String): Any
 
     // Preferences
     @PUT("v1/user/preferences")
@@ -176,4 +232,30 @@ interface BackendApiService {
         @Header("Authorization") token: String,
         @Body body: RegisterDeviceRequestDto
     ): Any
+
+    // Merchant endpoints (demo / hackathon)
+    @GET("v1/merchant/businesses")
+    suspend fun listMerchantBusinesses(): List<MerchantBusinessDto>
+
+    @GET("v1/merchant/{businessId}/rules")
+    suspend fun getMerchantRules(@Path("businessId") businessId: String): MerchantRuleDto
+
+    @PUT("v1/merchant/{businessId}/rules")
+    suspend fun putMerchantRules(
+        @Path("businessId") businessId: String,
+        @Body body: MerchantRuleInDto
+    ): MerchantRuleDto
+
+    @GET("v1/merchant/{businessId}/stats")
+    suspend fun getMerchantStats(
+        @Path("businessId") businessId: String,
+        @Query("day_key") dayKey: String? = null
+    ): MerchantStatsDto
+
+    @POST("v1/merchant/{businessId}/simulate/low-demand")
+    suspend fun simulateLowDemand(
+        @Path("businessId") businessId: String,
+        @Query("minutes") minutes: Int = 60,
+        @Query("demand_level") demandLevel: Int = 20
+    ): Map<String, Any?>
 }

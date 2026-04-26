@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user_id, get_db, require_user
-from app.models import Business, CouponInstance, CouponTemplate
+from app.models import Business, CouponInstance, CouponTemplate, MerchantRule, MerchantStatsDaily
 from app.schemas import ClaimCouponRequest, CouponInstanceOut, CouponTemplateOut, RedeemCouponResponse
 from app.services.offers_service import create_coupon_instance, redeem_coupon
 
@@ -78,6 +78,27 @@ def claim_coupon(
     now = datetime.utcnow()
     day_key = _today_key(now)
 
+    # Enforce merchant coupon budget + allowed products.
+    rule = db.get(MerchantRule, biz.id)
+    if rule:
+        # product/category allowlist (simple)
+        products = {p.strip().lower() for p in (rule.products_csv or "").split(",") if p.strip()}
+        if products and tpl.category.lower() not in products:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="product_not_allowed")
+
+        # daily budget (uses merchant stats "accepts" as issued count)
+        stats = (
+            db.query(MerchantStatsDaily)
+            .filter(MerchantStatsDaily.business_id == biz.id, MerchantStatsDaily.day_key == day_key)
+            .one_or_none()
+        )
+        issued_today = int(stats.accepts) if stats else 0
+        if rule.coupons_per_day is not None and issued_today >= int(rule.coupons_per_day):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="daily_coupon_budget_exhausted")
+
+        if rule.coupons_total is not None and int(rule.coupons_total_issued) >= int(rule.coupons_total):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="total_coupon_budget_exhausted")
+
     # Idempotency: one claim per (user, template, day). If it already exists, return it.
     existing = (
         db.query(CouponInstance)
@@ -98,6 +119,23 @@ def claim_coupon(
         discount_percent=tpl.base_discount,
         day_key=day_key,
     )
+
+    # Increment merchant stats + total issued counters
+    if rule:
+        if not stats:
+            stats = MerchantStatsDaily(
+                id=f"mstats_{biz.id}_{day_key}",
+                business_id=biz.id,
+                day_key=day_key,
+                impressions=0,
+                accepts=0,
+                declines=0,
+                redemptions=0,
+            )
+            db.add(stats)
+        stats.accepts = int(stats.accepts or 0) + 1
+        rule.coupons_total_issued = int(rule.coupons_total_issued or 0) + 1
+        db.commit()
     return _inst_out(inst)
 
 

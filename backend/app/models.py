@@ -15,6 +15,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
     display_name: Mapped[str] = mapped_column(String, default="Alex")
+    role: Mapped[str] = mapped_column(String, default="USER")  # USER|COMPANY
+    company_business_id: Mapped[str | None] = mapped_column(String, ForeignKey("businesses.id"), nullable=True)
     interests_csv: Mapped[str] = mapped_column(String, default="")
     exploration_preference: Mapped[int] = mapped_column(Integer, default=50)  # 0..100
     survey_json: Mapped[str] = mapped_column(String, default="{}")
@@ -23,6 +25,8 @@ class User(Base):
 
     streak: Mapped["Streak"] = relationship(back_populates="user", uselist=False)
     preferences: Mapped["UserPreferences"] = relationship(back_populates="user", uselist=False)
+    # Optional relationship for company accounts.
+    company_business: Mapped["Business"] = relationship(foreign_keys=[company_business_id])
 
 
 class Streak(Base):
@@ -154,4 +158,66 @@ class UserPreferences(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped[User] = relationship(back_populates="preferences")
+
+
+class MerchantRule(Base):
+    __tablename__ = "merchant_rules"
+
+    business_id: Mapped[str] = mapped_column(String, ForeignKey("businesses.id"), primary_key=True)
+
+    # Simple constraints/goals merchants can set without marketing resources.
+    max_discount_percent: Mapped[int] = mapped_column(Integer, default=20)  # 0..100
+    min_discount_percent: Mapped[int] = mapped_column(Integer, default=5)  # 0..100
+    quiet_hours_start: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0..23
+    quiet_hours_end: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0..23
+    goal: Mapped[str] = mapped_column(String, default="FILL_QUIET_HOURS")  # free-form enum-ish
+
+    # Coupon budget controls
+    coupons_per_day: Mapped[int] = mapped_column(Integer, default=50)  # daily handout cap
+    coupons_total: Mapped[int] = mapped_column(Integer, default=1000)  # overall cap for demo
+    coupons_total_issued: Mapped[int] = mapped_column(Integer, default=0)
+
+    # "Products" the merchant wants to push (simple categories or SKUs as CSV)
+    products_csv: Mapped[str] = mapped_column(String, default="coffee,food")  # e.g. "latte,croissant"
+
+    # Lightweight extra constraints as JSON (stored as text for SQLite simplicity)
+    rules_json: Mapped[str] = mapped_column(String, default="{}")
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    business: Mapped["Business"] = relationship()
+
+
+class MerchantStatsDaily(Base):
+    __tablename__ = "merchant_stats_daily"
+    __table_args__ = (UniqueConstraint("business_id", "day_key", name="uq_merchant_stats_business_day"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    business_id: Mapped[str] = mapped_column(String, ForeignKey("businesses.id"), index=True)
+    day_key: Mapped[str] = mapped_column(String)  # YYYY-MM-DD
+
+    impressions: Mapped[int] = mapped_column(Integer, default=0)
+    accepts: Mapped[int] = mapped_column(Integer, default=0)
+    declines: Mapped[int] = mapped_column(Integer, default=0)
+    redemptions: Mapped[int] = mapped_column(Integer, default=0)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    business: Mapped["Business"] = relationship()
+
+
+class DemandOverride(Base):
+    """
+    Demand proxy override for demos (simulates 'Payone transaction density unusually low').
+    If present and not expired, it drives the visible demand level for the business.
+    """
+
+    __tablename__ = "demand_overrides"
+
+    business_id: Mapped[str] = mapped_column(String, ForeignKey("businesses.id"), primary_key=True)
+    demand_level: Mapped[int] = mapped_column(Integer, default=30)  # 0..100 (lower == quieter)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    business: Mapped["Business"] = relationship()
 

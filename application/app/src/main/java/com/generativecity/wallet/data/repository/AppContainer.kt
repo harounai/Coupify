@@ -39,4 +39,5 @@ class AppContainer(context: Context) {
     val authRepository = AuthRepository(walletDao, backendApi)
     val homeRepository = HomeRepository(backendApi, walletDao)
     val notificationsRepository = NotificationsRepository(backendApi, walletDao)
+    val merchantRepository = MerchantRepository(backendApi)
 }

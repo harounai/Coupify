@@ -24,6 +24,7 @@ class AppViewModelFactory(
             ) as T
             modelClass.isAssignableFrom(ProfileViewModel::class.java) -> ProfileViewModel(container.rewardRepository) as T
             modelClass.isAssignableFrom(CompanyDashboardViewModel::class.java) -> CompanyDashboardViewModel(container.offerRepository) as T
+            modelClass.isAssignableFrom(MerchantDashboardViewModel::class.java) -> MerchantDashboardViewModel(container.merchantRepository) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }

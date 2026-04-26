@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.models import Business, CouponInstance, CouponTemplate, Notification, User
 from app.services.ai_ranker import AiRanker
 from app.services.fcm_push import send_push_to_user
+from app.services.context_signals import get_demand_signal, get_events_signal, get_weather_signal
 from app.services.offers_service import create_coupon_instance, list_businesses_with_distance
-from app.services.simulated_signals import get_demand_signal, get_events_signal, get_weather_signal
 from app.services.signals import LocationSignal, TimeSignal
 
 
@@ -24,7 +24,7 @@ def _build_candidates(db: Session, *, lat: float, lon: float) -> tuple[list[dict
     businesses_with_distance = list_businesses_with_distance(db, user_lat=lat, user_lon=lon)
     business_ids = [b.id for b, _ in businesses_with_distance]
     now = datetime.utcnow()
-    demand = get_demand_signal(business_ids, now)
+    demand = get_demand_signal(db, business_ids, now)
 
     candidates: list[dict] = []
     for tpl in templates:
@@ -121,8 +121,8 @@ async def tick_generate_notifications(db: Session, *, max_per_user_per_day: int 
             continue
 
         business_ids = [b.id for b, _ in businesses_with_distance]
-        weather = get_weather_signal(now)
-        demand = get_demand_signal(business_ids, now)
+        weather = await get_weather_signal(lat=lat, lon=lon, now=now)
+        demand = get_demand_signal(db, business_ids, now)
         events = get_events_signal(now)
         time = TimeSignal(now=now)
         location = LocationSignal(lat=lat, lon=lon)
@@ -228,6 +228,104 @@ async def tick_generate_notifications(db: Session, *, max_per_user_per_day: int 
         created += 1
 
     return created
+
+async def schedule_login_notification(
+    *,
+    session_factory,
+    user_id: str,
+    delay_seconds: int = 60,
+    lat: float = 48.137154,
+    lon: float = 11.576124,
+) -> None:
+    """
+    Hackathon UX: emit a notification ~1 minute after login.
+    Best-effort: if anything fails, we just skip.
+    """
+    await asyncio.sleep(max(1, int(delay_seconds)))
+    try:
+        with session_factory() as db:
+            user = db.get(User, user_id)
+            if not user:
+                return
+
+            now = datetime.utcnow()
+            # Avoid spamming: if a notification was created in the last 10 minutes, skip.
+            recent = (
+                db.query(Notification)
+                .filter(Notification.user_id == user_id)
+                .filter(Notification.created_at >= datetime(now.year, now.month, now.day))
+                .order_by(Notification.created_at.desc())
+                .first()
+            )
+            if recent and (now - recent.created_at).total_seconds() < 10 * 60:
+                return
+
+            # Build candidates and create ONE catchy notification unconditionally.
+            day_key = _today_key(now)
+            candidates, templates, businesses_with_distance = _build_candidates(db, lat=lat, lon=lon)
+            if not candidates:
+                return
+
+            business_ids = [b.id for b, _ in businesses_with_distance]
+            weather = await get_weather_signal(lat=lat, lon=lon, now=now)
+            demand = get_demand_signal(db, business_ids, now)
+            events = get_events_signal(now)
+            time = TimeSignal(now=now)
+            location = LocationSignal(lat=lat, lon=lon)
+
+            ranker = AiRanker()
+            ranked_ids, _, _ = await ranker.rank_home_feed(
+                user_id=user.id,
+                user_preferences=[s.strip() for s in (user.interests_csv or "").split(",") if s.strip()],
+                exploration_preference=user.exploration_preference,
+                weather=weather,
+                time=time,
+                location=location,
+                demand=demand,
+                events=events,
+                candidates=candidates,
+            )
+            ranked_set = {cid: i for i, cid in enumerate(ranked_ids)}
+            candidates.sort(key=lambda c: ranked_set.get(c["id"], 10_000))
+            chosen = candidates[0]
+
+            tpl = next((t for t in templates if t.id == chosen["template_id"]), None)
+            biz = next((b for b, _ in businesses_with_distance if b.id == chosen["business_id"]), None)
+            if not tpl or not biz:
+                return
+
+            inst = create_coupon_instance(
+                db,
+                user=user,
+                template=tpl,
+                business=biz,
+                discount_percent=int(chosen.get("base_discount") or tpl.base_discount),
+                day_key=day_key,
+            )
+
+            title = f"Perfect timing at {biz.name}"
+            if weather.temperature_c >= 24 and tpl.category == "coffee":
+                title = "It’s hot — iced coffee time!"
+            elif weather.temperature_c <= 12 and tpl.category == "coffee":
+                title = "Chilly out — warm coffee break?"
+            elif weather.condition in ("Rainy", "Stormy", "Snowy") and tpl.category in ("coffee", "food"):
+                title = "Weather’s rough — cozy deal nearby"
+
+            body = f"{inst.discount_percent}% OFF right now at {biz.name} - {chosen.get('distance_km', '?')} km away."
+
+            notif = Notification(
+                id=f"notif_{uuid.uuid4().hex}",
+                user_id=user.id,
+                coupon_instance_id=inst.id,
+                title=title,
+                body=body,
+                status="pending",
+                created_at=now,
+            )
+            db.add(notif)
+            db.commit()
+    except Exception:
+        return
 
 
 async def run_notification_loop(*, session_factory, tick_seconds: int, enabled: bool, max_per_user_per_day: int = 1) -> None:

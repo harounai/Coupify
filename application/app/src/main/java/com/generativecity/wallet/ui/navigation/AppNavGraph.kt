@@ -32,6 +32,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.generativecity.wallet.data.model.UserRole
+import com.generativecity.wallet.data.model.Business as UiBusiness
 import com.generativecity.wallet.data.remote.MockData
 import com.generativecity.wallet.ui.components.QrCodeDialog
 import com.generativecity.wallet.ui.screens.*
@@ -51,6 +52,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
     val rouletteViewModel: RouletteViewModel = viewModel(factory = factory)
     val profileViewModel: ProfileViewModel = viewModel(factory = factory)
     val companyViewModel: CompanyDashboardViewModel = viewModel(factory = factory)
+    val merchantViewModel: MerchantDashboardViewModel = viewModel(factory = factory)
 
     val authState by authViewModel.uiState.collectAsState()
     val currentUser = authState.currentUser
@@ -85,6 +87,8 @@ fun AppNavGraph(factory: AppViewModelFactory) {
         LoginScreen(
             onLogin = authViewModel::login,
             onRegister = authViewModel::register,
+            onRegisterCompany = authViewModel::registerCompany,
+            onEnterMerchantMode = authViewModel::enterMerchantMode,
             isLoading = authState.isLoading,
             error = authState.error,
             onClearError = authViewModel::clearError
@@ -101,16 +105,19 @@ fun AppNavGraph(factory: AppViewModelFactory) {
     }
 
     if (currentUser?.role == UserRole.COMPANY) {
-        val companyState by companyViewModel.uiState.collectAsState()
-        CompanyDashboardScreen(
-            state = companyState,
-            onGenerateSuggestion = {
-                currentUser.let { user ->
-                    if (user != null) {
-                        companyViewModel.generateSuggestion(user.id, user)
-                    }
-                }
+        val merchantState by merchantViewModel.uiState.collectAsState()
+        LaunchedEffect(currentUser?.id) {
+            // For company accounts, the backend merchant endpoints are keyed by business_id (biz_*),
+            // not by the user id (user_*). We store that business id in UserEntity.companyName.
+            val businessId = currentUser?.companyName?.takeIf { it.isNotBlank() } ?: currentUser?.id
+            businessId?.let { merchantViewModel.load(it) }
+        }
+        MerchantDashboardScreen(
+            state = merchantState,
+            onSaveRules = { maxD, minD, goal, couponsPerDay, couponsTotal, products ->
+                merchantViewModel.saveAdvancedRules(maxD, minD, goal, couponsPerDay, couponsTotal, products)
             },
+            onSimulateLowDemand = merchantViewModel::simulateLowDemand,
             onLogout = authViewModel::logout
         )
         return
@@ -253,7 +260,29 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                 arguments = listOf(navArgument("businessId") { type = NavType.StringType })
             ) { backStack ->
                 val businessId = backStack.arguments?.getString("businessId").orEmpty()
-                val business = MockData.businesses.firstOrNull { it.id == businessId }
+
+                // Prefer live backend-fed businesses (Home feed), then fall back to mock data.
+                // This fixes Home "New in Town" cards opening IDs that don't exist in MockData.
+                val backendBiz = homeState.feed?.let { feed ->
+                    val fromNewInTown = feed.new_in_town.firstOrNull { it.id == businessId }
+                    val fromOfferOfDay = feed.offer_of_the_day?.business?.takeIf { it.id == businessId }
+                    val fromLive = feed.live_opportunities.firstOrNull { it.business.id == businessId }?.business
+                    val fromClaimed = feed.claimed_rewards_today.firstOrNull { it.business.id == businessId }?.business
+                    fromNewInTown ?: fromOfferOfDay ?: fromLive ?: fromClaimed
+                }
+
+                val business: UiBusiness? = when {
+                    backendBiz != null -> UiBusiness(
+                        id = backendBiz.id,
+                        name = backendBiz.name,
+                        category = backendBiz.category,
+                        distanceKm = backendBiz.distance_km ?: 0.0,
+                        demandLevel = backendBiz.demand_level ?: 50,
+                        imageUrl = backendBiz.image_url
+                    )
+                    else -> MockData.businesses.firstOrNull { it.id == businessId }
+                }
+
                 if (business != null) {
                     ExploreDetailScreen(
                         business = business,
@@ -261,6 +290,8 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                         onBack = { navController.popBackStack() },
                         onSaveToWallet = { walletViewModel.saveOffer(it) }
                     )
+                } else {
+                    LaunchedEffect(Unit) { navController.popBackStack() }
                 }
             }
 
