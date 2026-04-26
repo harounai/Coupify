@@ -1,49 +1,40 @@
-# CITY WALLET Android App
+# Generative City Wallet
 
-Android client for the CITY WALLET MVP (consumer + merchant views).
+AI-powered hackathon wallet app built with Kotlin + Jetpack Compose + MVVM.
 
-## What It Demonstrates
-
-- Context-driven, dynamic offers (generated server-side per moment)
-- Consumer flow from offer discovery to QR redemption
-- Simulated checkout: create token -> display QR payload -> validate redemption
-- Merchant flow with aggregate performance stats
-- End-to-end integration with the FastAPI backend
-
-## Tech Stack
-
-- Kotlin + Jetpack Compose
+## Stack
+- Kotlin
+- Jetpack Compose + Material 3
+- Navigation Compose
 - MVVM + StateFlow
-- Room (local app state persistence)
-- Retrofit + Gson (backend integration)
+- Room (local persistence)
+- Retrofit-style mock service layer
 - Coroutines
-- ZXing (QR bitmap generation)
+- Coil
+- ZXing QR generation
 
-## Prerequisites
+## Project Highlights
+- User and company login modes
+- User onboarding survey saved in Room
+- AI Context Engine combines weather, time, location, preferences, and merchant demand
+- Dynamic offer generation (not static coupons)
+- Bottom tabs: Home, Explore, Roulette, Notifications, Profile
+- Company dashboard for AI suggestions
+- 5-minute roulette cooldown
+- 5-minute notification offer trigger loop
+- QR payload generation: user_id + offer_id + timestamp
 
-- Android Studio (latest stable recommended)
-- Android SDK with API 24+
-- Running backend at `http://10.0.2.2:8000` (Android emulator loopback)
+## Run In Android Studio
+1. Open this folder in Android Studio.
+2. Let Gradle sync complete.
+3. Run app module on an emulator/device (Android 7.0+, API 24+).
 
-## Run Locally
+## Note About Gradle Wrapper
+This environment did not have a Gradle binary available to auto-generate wrapper files.
+If your Android Studio asks for wrapper files, use Android Studio's Gradle actions to generate wrapper, or run:
 
-1. Start backend first (see `backend/README.md`).
-2. Open the `application` folder in Android Studio.
-3. Let Gradle sync finish.
-4. Run the `app` configuration on emulator or device.
-
-### CLI Build (optional)
-
-If Java/JDK is installed and Gradle wrapper is executable:
-
-```bash
-cd application
-chmod +x gradlew
-./gradlew :app:assembleDebug
+```
+gradle wrapper
 ```
 
-## Important Config Notes
-
-- The app uses cleartext HTTP for local development (`AndroidManifest.xml`).
-- Backend base URL is configured in `AppContainer` as `http://10.0.2.2:8000/`.
-- For a physical device, replace `10.0.2.2` with your host machine LAN IP.
+from project root on a machine with Gradle installed.

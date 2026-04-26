@@ -19,8 +19,7 @@ data class WalletUiState(
     val activeOffers: List<OfferEntity> = emptyList(),
     val savedOffers: List<OfferEntity> = emptyList(),
     val redeemedOffers: List<OfferEntity> = emptyList(),
-    val selectedOfferIdForQr: String? = null,
-    val qrPayload: String? = null
+    val selectedOfferIdForQr: String? = null
 )
 
 class WalletViewModel(
@@ -79,26 +78,11 @@ class WalletViewModel(
         }
     }
 
-    fun openQrForOffer(userId: Int, offerId: String) {
-        viewModelScope.launch {
-            val payload = offerRepository.createRedemptionPayload(userId, offerId)
-            _uiState.update { it.copy(selectedOfferIdForQr = offerId, qrPayload = payload) }
-        }
-    }
-
-    fun confirmRedemption() {
-        viewModelScope.launch {
-            val payload = _uiState.value.qrPayload ?: return@launch
-            val offerId = _uiState.value.selectedOfferIdForQr ?: return@launch
-            val valid = offerRepository.validateRedemptionByPayload(payload)
-            if (valid) {
-                offerRepository.updateOfferStatus(offerId, OfferStatus.REDEEMED)
-            }
-            closeQr()
-        }
+    fun openQrForOffer(offerId: String) {
+        _uiState.update { it.copy(selectedOfferIdForQr = offerId) }
     }
 
     fun closeQr() {
-        _uiState.update { it.copy(selectedOfferIdForQr = null, qrPayload = null) }
+        _uiState.update { it.copy(selectedOfferIdForQr = null) }
     }
 }
