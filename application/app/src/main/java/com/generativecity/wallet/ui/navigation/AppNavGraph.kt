@@ -35,7 +35,6 @@ import com.generativecity.wallet.data.model.UserRole
 import com.generativecity.wallet.data.remote.MockData
 import com.generativecity.wallet.ui.components.QrCodeDialog
 import com.generativecity.wallet.ui.screens.*
-import com.generativecity.wallet.utils.DateTimeUtils
 import com.generativecity.wallet.viewmodel.*
 
 @Composable
@@ -181,7 +180,7 @@ fun AppNavGraph(factory: AppViewModelFactory) {
                     walletState = walletState,
                     notificationsState = notificationsState,
                     onUseOffer = { offerId ->
-                        walletViewModel.openQrForOffer(offerId)
+                        currentUser?.let { walletViewModel.openQrForOffer(it.id, offerId) }
                     },
                     onDeclineNotification = notificationsViewModel::decline,
                     onAcceptNotification = notificationsViewModel::accept,
@@ -246,13 +245,14 @@ fun AppNavGraph(factory: AppViewModelFactory) {
             }
         }
 
-        val selectedOfferId = walletState.selectedOfferIdForQr
-        if (selectedOfferId != null && currentUser != null) {
+        val qrPayload = walletState.qrPayload
+        if (qrPayload != null && currentUser != null) {
             QrCodeDialog(
-                payload = DateTimeUtils.buildQrPayload(currentUser.id, selectedOfferId),
+                payload = qrPayload,
                 onDismiss = {
                     walletViewModel.closeQr()
-                }
+                },
+                onSimulateScan = walletViewModel::confirmRedemption
             )
         }
     }

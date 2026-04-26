@@ -81,8 +81,8 @@ fun CompanyDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    StatCard("Active", "${state.activeOffers.size}", Icons.Default.FlashOn, Color(0xFFF97316), Modifier.weight(1f))
-                    StatCard("Redeemed", "128", Icons.Default.ConfirmationNumber, Color(0xFF10B981), Modifier.weight(1f))
+                    StatCard("Generated", "${state.generatedTotal}", Icons.Default.FlashOn, Color(0xFFF97316), Modifier.weight(1f))
+                    StatCard("Redeemed", "${state.redeemedTotal}", Icons.Default.ConfirmationNumber, Color(0xFF10B981), Modifier.weight(1f))
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))

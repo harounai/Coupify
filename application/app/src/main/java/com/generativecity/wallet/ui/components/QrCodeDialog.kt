@@ -26,7 +26,8 @@ import com.generativecity.wallet.utils.QrCodeGenerator
 @Composable
 fun QrCodeDialog(
     payload: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSimulateScan: () -> Unit
 ) {
     val image = QrCodeGenerator.generateQrCode(payload)
     
@@ -135,13 +136,23 @@ fun QrCodeDialog(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                ) {
-                    Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.height(52.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.Close, null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Close")
+                    }
+                    Button(
+                        onClick = onSimulateScan,
+                        modifier = Modifier.height(52.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316), contentColor = Color.White)
+                    ) {
+                        Text("Simulate merchant scan", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

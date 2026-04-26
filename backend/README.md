@@ -1,47 +1,59 @@
-# Mock FastAPI Voucher Service
+# CITY WALLET Backend (FastAPI)
 
-Simple FastAPI project with:
-- Mock authentication endpoint for two users
-- Mock daily voucher endpoint returning two vouchers per authenticated user
+Real-time context + dynamic offer engine for the CITY WALLET MVP.
 
-## Endpoints
+This backend powers:
+- context sensing (`weather + time + location + demand proxy`)
+- dynamic offer generation from merchant rules
+- redemption token + checkout validation simulation
+- merchant analytics for generated/accepted/redeemed offers
+- local LLM copy generation through Ollama (with deterministic fallback)
 
-- `POST /auth/login`
-  - Request body:
-    ```json
-    {
-      "username": "alice",
-      "password": "alice123"
-    }
-    ```
-  - Mock users:
-    - `alice` / `alice123`
-    - `bob` / `bob123`
-  - Response:
-    ```json
-    {
-      "access_token": "mock-token-alice",
-      "token_type": "bearer",
-      "expires_in_seconds": 3600
-    }
-    ```
+## Requirements
 
-- `GET /voucher/daily`
-  - Requires header: `Authorization: Bearer <user-token>`
-  - Returns an array of 2 voucher records for the authenticated user
-  - Response:
-    - `b64image` (Base64 image string from files in `img/`)
-    - `headline` (string)
-    - `text` (string)
-    - `percent` (integer 0..100)
-
-## Run locally
+- Python 3.11+ (3.10 also works in most setups)
+- Ollama running locally (`ollama serve`)
+- An installed model, for example:
 
 ```bash
-python -m venv .venv
-.venv\\Scripts\\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+ollama pull llama3.1:8b
 ```
 
-Open docs at: `http://127.0.0.1:8000/docs`
+## Configuration
+
+Create `.env` from `.env.example` (optional, defaults already work):
+
+```bash
+cp .env.example .env
+```
+
+Supported env vars:
+- `OLLAMA_BASE_URL` (default `http://127.0.0.1:11434`)
+- `OLLAMA_MODEL` (default `llama3.1:8b`)
+
+## Run Locally
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+API docs:
+- [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+## API Endpoints
+
+- `GET /health`
+- `POST /context/evaluate`
+- `POST /offers/generate`
+- `POST /redemptions/create`
+- `POST /redemptions/validate`
+- `GET /merchant/dashboard?city=stuttgart`
+
+## Notes
+
+- If Ollama is not reachable, generation still works with a local deterministic fallback.
+- City-specific context behavior is config-driven via `config/cities/*.json`.

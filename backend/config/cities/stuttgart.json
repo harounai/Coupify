@@ -1,0 +1,9 @@
+{
+  "display_name": "Stuttgart Old Town",
+  "low_density_threshold": 48,
+  "signals": {
+    "weather": "inline_or_provider",
+    "events": "city_event_calendar",
+    "payone_density": "merchant_transaction_density"
+  }
+}
