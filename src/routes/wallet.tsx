@@ -1,28 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ChevronDown,
   Clock,
   MapPin,
-  RefreshCw,
   ScanLine,
   Sparkles,
-  Thermometer,
-  Wind,
   X,
   Gift,
   Wallet as WalletIcon,
-  Zap,
 } from "lucide-react";
-import {
-  api,
-  SCENARIO_CONTEXTS,
-  THEME_CONFIG,
-  type ContextState,
-  type GeneratedOffer,
-} from "../lib/api";
+import { SCENARIOS, type Offer } from "../lib/scenarios";
 import { QrCode } from "../components/QrCode";
 import { SpinWheel } from "../components/SpinWheel";
 import { SpinResultCard } from "../components/SpinResultCard";
@@ -39,31 +29,24 @@ export const Route = createFileRoute("/wallet")({
   head: () => ({
     meta: [
       { title: "Wallet — City-Wallet Stuttgart" },
-      { name: "description", content: "AI-generated local offers in real time." },
+      {
+        name: "description",
+        content:
+          "Your personal feed of contextual, real-time local offers around Stuttgart.",
+      },
+      { property: "og:title", content: "City-Wallet — Consumer Wallet" },
+      {
+        property: "og:description",
+        content: "Generative local offers, tailored to weather, time and place.",
+      },
     ],
   }),
   component: WalletPage,
 });
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type ActiveOffer = {
-  id: string;
-  merchant: string;
-  category: string;
-  distanceM: number;
-  headline: string;
-  subline: string;
-  discount: number;
-  originalPrice: number;
-  finalPrice: number;
-  reasoning: string;
-  validSeconds: number;
-  gradient: string;
-  accent: string;
-  emoji: string;
-  bonusItem?: string;
-  token: string;
+type ActiveOffer = Offer & {
+  bonusActive?: boolean;
+  // Used to force the countdown hook to restart when we extend time
   versionKey: string;
 };
 
@@ -72,186 +55,135 @@ type View =
   | { kind: "spin"; offer: ActiveOffer }
   | { kind: "result"; offer: ActiveOffer; outcome: SpinOutcome }
   | { kind: "redeem"; offer: ActiveOffer }
-  | { kind: "redeemed"; offer: ActiveOffer };
+  | { kind: "redeemed"; offer: ActiveOffer }
+  | { kind: "empty" };
 
-const SCENARIOS_UI = [
-  { key: "live", label: "Live context", emoji: "🌐", desc: "Real Stuttgart weather now" },
-  { key: "cold-rain", label: "Cold & Raining", emoji: "🌧️", desc: "7°C, rain · Tue 14:00" },
-  { key: "sunny-warm", label: "Sunny & Warm", emoji: "☀️", desc: "24°C, clear · Fri 17:00" },
-  { key: "cold-evening", label: "Cold Evening", emoji: "🌙", desc: "4°C, clear · Thu 19:00" },
-  { key: "lunch-rush", label: "Lunch Rush", emoji: "🥗", desc: "18°C, cloudy · Wed 12:30" },
-];
-
-function fromApi(o: GeneratedOffer): ActiveOffer {
-  const th = THEME_CONFIG[o.theme] ?? THEME_CONFIG.blue;
-  return {
-    id: o.id,
-    merchant: o.merchant,
-    category: o.category,
-    distanceM: o.distance_m,
-    headline: o.headline,
-    subline: o.subline,
-    discount: o.discount,
-    originalPrice: o.original_price,
-    finalPrice: o.final_price,
-    reasoning: o.reasoning,
-    validSeconds: o.valid_seconds,
-    gradient: th.gradient,
-    accent: th.accent,
-    emoji: o.emoji,
-    bonusItem: o.bonus_item ?? undefined,
-    token: o.token,
-    versionKey: o.id,
-  };
+function toActive(o: Offer): ActiveOffer {
+  return { ...o, versionKey: o.id };
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 function WalletPage() {
-  const [scenarioKey, setScenarioKey] = useState("cold-rain");
-  const [liveContext, setLiveContext] = useState<ContextState | null>(null);
-  const [isGenerating, setIsGenerating] = useState(true);
-  const [view, setView] = useState<View | null>(null);
-  const [history, setHistory] = useState<{ offer: ActiveOffer; ts: number }[]>([]);
-  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
-  const generatingRef = useRef(false);
+  const [scenarioKey, setScenarioKey] = useState(SCENARIOS[0].key);
+  const [offerIndex, setOfferIndex] = useState(0);
+  const [view, setView] = useState<View>({
+    kind: "offer",
+    offer: toActive(SCENARIOS[0].offers[0]),
+  });
+  const [history, setHistory] = useState<{ offer: ActiveOffer; ts: number }[]>(
+    []
+  );
+
+  const scenario = useMemo(
+    () => SCENARIOS.find((s) => s.key === scenarioKey)!,
+    [scenarioKey]
+  );
 
   const totalSaved = history.reduce(
     (sum, h) => sum + (h.offer.originalPrice - h.offer.finalPrice),
     0
   );
 
-  // Probe backend health + fetch live weather once on mount
+  // When scenario changes, reset to first offer
   useEffect(() => {
-    api
-      .health()
-      .then(() => {
-        setBackendOnline(true);
-        return api.getContext();
-      })
-      .then(setLiveContext)
-      .catch(() => setBackendOnline(false));
-  }, []);
+    setOfferIndex(0);
+    setView({ kind: "offer", offer: toActive(scenario.offers[0]) });
+  }, [scenarioKey, scenario.offers]);
 
-  const generateOffer = useCallback(
-    async (key: string) => {
-      if (generatingRef.current) return;
-      generatingRef.current = true;
-      setIsGenerating(true);
-      setView(null);
-      try {
-        const ctx = key === "live" ? undefined : SCENARIO_CONTEXTS[key];
-        const offer = await api.generateOffer({ context: ctx });
-        setView({ kind: "offer", offer: fromApi(offer) });
-      } catch {
-        // Backend offline — show static fallback card
-        setView({ kind: "offer", offer: STATIC_FALLBACK });
-      } finally {
-        setIsGenerating(false);
-        generatingRef.current = false;
-      }
-    },
-    []
-  );
-
-  // Generate on mount once backend status is known
-  useEffect(() => {
-    if (backendOnline === null) return;
-    generateOffer(scenarioKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backendOnline]);
-
-  const onScenarioChange = (key: string) => {
-    setScenarioKey(key);
-    generateOffer(key);
+  const onAccept = (offer: ActiveOffer) => {
+    setView({ kind: "spin", offer });
   };
-
-  const onAccept = (offer: ActiveOffer) => setView({ kind: "spin", offer });
-
-  const onDismiss = () => generateOffer(scenarioKey);
-
-  const onScan = async (offer: ActiveOffer) => {
-    try {
-      await api.redeemOffer({
-        offer_id: offer.id,
-        token: offer.token,
-        merchant: offer.merchant,
-        discount: offer.discount,
-        original_price: offer.originalPrice,
-        final_price: offer.finalPrice,
-      });
-    } catch {
-      /* ignore — still show success */
+  const onDismiss = () => {
+    const next = offerIndex + 1;
+    if (next < scenario.offers.length) {
+      setOfferIndex(next);
+      setView({ kind: "offer", offer: toActive(scenario.offers[next]) });
+    } else {
+      setView({ kind: "empty" });
     }
+  };
+  const onScan = (offer: ActiveOffer) => {
     setView({ kind: "redeemed", offer });
     setHistory((h) => [{ offer, ts: Date.now() }, ...h].slice(0, 4));
   };
-
-  const backToWallet = () => generateOffer(scenarioKey);
+  const backToWallet = () => {
+    setOfferIndex(0);
+    setView({ kind: "offer", offer: toActive(scenario.offers[0]) });
+  };
 
   const onSpinResult = (outcome: SpinOutcome) => {
-    if (view?.kind !== "spin") return;
+    if (view.kind !== "spin") return;
     setView({ kind: "result", offer: view.offer, outcome });
   };
 
   const onSpinSkip = () => {
-    if (view?.kind !== "spin") return;
+    if (view.kind !== "spin") return;
     setView({ kind: "redeem", offer: view.offer });
   };
 
   const continueFromResult = () => {
-    if (view?.kind !== "result") return;
+    if (view.kind !== "result") return;
     const { offer, outcome } = view;
     switch (outcome.kind) {
       case "double": {
-        const d = Math.min(80, offer.discount * 2);
-        setView({ kind: "redeem", offer: { ...offer, discount: d, finalPrice: +(offer.originalPrice * (1 - d / 100)).toFixed(2) } });
+        const newDiscount = Math.min(80, offer.discount * 2);
+        const finalPrice = +(
+          offer.originalPrice *
+          (1 - newDiscount / 100)
+        ).toFixed(2);
+        setView({
+          kind: "redeem",
+          offer: { ...offer, discount: newDiscount, finalPrice },
+        });
         break;
       }
-      case "jackpot":
-        setView({ kind: "redeem", offer: { ...offer, discount: 80, finalPrice: +(offer.originalPrice * 0.2).toFixed(2) } });
+      case "jackpot": {
+        const finalPrice = +(offer.originalPrice * 0.2).toFixed(2);
+        setView({
+          kind: "redeem",
+          offer: { ...offer, discount: 80, finalPrice },
+        });
         break;
-      case "extend":
-        setView({ kind: "offer", offer: { ...offer, validSeconds: offer.validSeconds + 600, versionKey: `${offer.id}-ext` } });
+      }
+      case "extend": {
+        setView({
+          kind: "offer",
+          offer: {
+            ...offer,
+            validSeconds: offer.validSeconds + 600,
+            versionKey: `${offer.id}-${Date.now()}`,
+          },
+        });
         break;
-      case "bonus":
-        setView({ kind: "redeem", offer: { ...offer, bonusItem: offer.bonusItem ?? "free treat" } });
+      }
+      case "bonus": {
+        setView({
+          kind: "redeem",
+          offer: { ...offer, bonusActive: true },
+        });
         break;
-      case "lose":
+      }
+      case "lose": {
         onDismiss();
         break;
+      }
+      case "normal":
       default:
         setView({ kind: "redeem", offer });
     }
   };
 
-  // Active context for the weather pill
-  const activeCtx =
-    scenarioKey === "live"
-      ? liveContext
-      : (SCENARIO_CONTEXTS[scenarioKey] as ContextState | undefined) ?? null;
-
-  const weatherPill = activeCtx
-    ? `${activeCtx.weather.icon} ${activeCtx.weather.temp_c}°C · ${activeCtx.weather.description}`
-    : liveContext
-    ? `${liveContext.weather.icon} ${liveContext.weather.temp_c}°C · ${liveContext.weather.description}`
-    : "⏳ Loading weather…";
-
-  const timePill = activeCtx
-    ? `🕐 ${activeCtx.time.day_of_week.slice(0, 3)} · ${activeCtx.time.period}`
-    : "";
-
-  const currentScenario = SCENARIOS_UI.find((s) => s.key === scenarioKey);
+  const backFromResult = () => backToWallet();
 
   return (
     <main className="relative flex flex-1 items-start justify-center px-4 py-8 sm:py-12">
+      {/* layered ambient backdrop */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,oklch(0.96_0.04_60),transparent_55%),radial-gradient(ellipse_at_bottom_right,oklch(0.94_0.05_240),transparent_55%),radial-gradient(ellipse_at_bottom_left,oklch(0.95_0.05_150),transparent_50%)]" />
 
       <div className="w-full max-w-md">
         {/* Phone frame */}
         <div className="relative mx-auto w-full max-w-[400px]">
           <div className="rounded-[2.75rem] border border-border/60 bg-card p-3 shadow-[var(--shadow-phone)]">
-            <div className="relative h-[800px] overflow-hidden rounded-[2.25rem] bg-background">
+            <div className="relative h-[760px] overflow-hidden rounded-[2.25rem] bg-background">
               {/* status bar */}
               <div className="flex items-center justify-between px-6 pt-3 text-[11px] font-medium text-foreground/70">
                 <span>9:41</span>
@@ -264,7 +196,7 @@ function WalletPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs text-muted-foreground">Guten Tag</div>
-                    <div className="text-lg font-semibold tracking-tight">Mia</div>
+                    <div className="text-lg font-semibold tracking-tight">Lena</div>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
                     <MapPin className="h-3 w-3" />
@@ -272,53 +204,32 @@ function WalletPage() {
                   </div>
                 </div>
 
-                {/* context pills row */}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                {/* savings + context pills */}
+                <div className="mt-3 flex items-center gap-2">
                   <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-semibold text-success">
                     <WalletIcon className="h-3 w-3" />
                     Saved €{totalSaved.toFixed(2)}
                   </div>
-                  <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground">
-                    <Thermometer className="h-3 w-3" />
-                    {weatherPill}
+                  <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground">
+                    <span>{scenario.emoji}</span>
+                    <span>{scenario.weather}</span>
                   </div>
-                  {timePill && (
-                    <div className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground">
-                      {timePill}
-                    </div>
-                  )}
                 </div>
-
-                {/* live badge */}
-                {backendOnline && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-success">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />
-                    AI engine online · Open-Meteo weather live
-                  </div>
-                )}
-                {backendOnline === false && (
-                  <div className="mt-2 text-[10px] text-muted-foreground">
-                    ⚠️ Backend offline — showing demo offers
-                  </div>
-                )}
 
                 {/* scenario selector */}
                 <div className="mt-3">
                   <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                     Simulate context
                   </label>
-                  <Select value={scenarioKey} onValueChange={onScenarioChange}>
-                    <SelectTrigger className="h-11 w-full rounded-2xl border-border/70 bg-card text-left text-[13px]">
+                  <Select value={scenarioKey} onValueChange={setScenarioKey}>
+                    <SelectTrigger className="h-12 w-full rounded-2xl border-border/70 bg-card text-left">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {SCENARIOS_UI.map((s) => (
+                      {SCENARIOS.map((s) => (
                         <SelectItem key={s.key} value={s.key}>
                           <span className="mr-2">{s.emoji}</span>
-                          {s.label}
-                          <span className="ml-2 text-[11px] text-muted-foreground">
-                            — {s.desc}
-                          </span>
+                          {s.label} — {s.time}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -327,37 +238,14 @@ function WalletPage() {
               </div>
 
               {/* main feed */}
-              <div className="relative mt-4 px-5">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    <Sparkles className="h-3 w-3" />
-                    {isGenerating ? "AI is generating…" : "Generated for you"}
-                  </div>
-                  {!isGenerating && view?.kind === "offer" && (
-                    <button
-                      onClick={() => generateOffer(scenarioKey)}
-                      className="flex items-center gap-1 rounded-full border border-border/60 bg-card px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <RefreshCw className="h-2.5 w-2.5" />
-                      Regenerate
-                    </button>
-                  )}
+              <div className="relative mt-5 px-5">
+                <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <Sparkles className="h-3 w-3" />
+                  Generated for you
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {isGenerating && (
-                    <motion.div
-                      key="generating"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <GeneratingSkeleton scenarioKey={scenarioKey} />
-                    </motion.div>
-                  )}
-
-                  {!isGenerating && view?.kind === "offer" && (
+                  {view.kind === "offer" && (
                     <motion.div
                       key={`offer-${view.offer.versionKey}`}
                       initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -373,7 +261,7 @@ function WalletPage() {
                     </motion.div>
                   )}
 
-                  {!isGenerating && view?.kind === "spin" && (
+                  {view.kind === "spin" && (
                     <motion.div
                       key={`spin-${view.offer.id}`}
                       initial={{ opacity: 0, y: 20, scale: 0.96 }}
@@ -385,9 +273,9 @@ function WalletPage() {
                     </motion.div>
                   )}
 
-                  {!isGenerating && view?.kind === "result" && (
+                  {view.kind === "result" && (
                     <motion.div
-                      key={`result-${view.outcome.kind}`}
+                      key={`result-${view.outcome.kind}-${view.offer.id}`}
                       initial={{ opacity: 0, y: 16, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.96 }}
@@ -396,12 +284,12 @@ function WalletPage() {
                       <SpinResultCard
                         outcome={view.outcome}
                         onContinue={continueFromResult}
-                        onBack={backToWallet}
+                        onBack={backFromResult}
                       />
                     </motion.div>
                   )}
 
-                  {!isGenerating && view?.kind === "redeem" && (
+                  {view.kind === "redeem" && (
                     <motion.div
                       key={`redeem-${view.offer.id}`}
                       initial={{ opacity: 0, rotateY: 35, scale: 0.95 }}
@@ -417,7 +305,7 @@ function WalletPage() {
                     </motion.div>
                   )}
 
-                  {!isGenerating && view?.kind === "redeemed" && (
+                  {view.kind === "redeemed" && (
                     <motion.div
                       key={`done-${view.offer.id}`}
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -428,15 +316,33 @@ function WalletPage() {
                       <SuccessCard offer={view.offer} onBack={backToWallet} />
                     </motion.div>
                   )}
+
+                  {view.kind === "empty" && (
+                    <motion.div
+                      key="empty"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center"
+                    >
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                        <Sparkles className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="text-sm font-medium">
+                        Looking for your next offer…
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Try another context above.
+                      </p>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
 
                 {/* Recently saved */}
                 {history.length > 0 &&
-                  !isGenerating &&
-                  view?.kind !== "redeem" &&
-                  view?.kind !== "redeemed" &&
-                  view?.kind !== "spin" &&
-                  view?.kind !== "result" && (
+                  view.kind !== "redeem" &&
+                  view.kind !== "redeemed" &&
+                  view.kind !== "spin" &&
+                  view.kind !== "result" && (
                     <div className="mt-5">
                       <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                         Recently saved
@@ -449,9 +355,14 @@ function WalletPage() {
                           >
                             <div className="text-lg">{h.offer.emoji}</div>
                             <div className="leading-tight">
-                              <div className="text-[11px] font-medium">{h.offer.merchant}</div>
+                              <div className="text-[11px] font-medium">
+                                {h.offer.merchant}
+                              </div>
                               <div className="text-[10px] text-success">
-                                Saved €{(h.offer.originalPrice - h.offer.finalPrice).toFixed(2)}
+                                Saved €
+                                {(
+                                  h.offer.originalPrice - h.offer.finalPrice
+                                ).toFixed(2)}
                               </div>
                             </div>
                           </div>
@@ -465,49 +376,12 @@ function WalletPage() {
         </div>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          AI offer engine · Open-Meteo weather · Stuttgart demo
+          Mobile preview · all data simulated for demo purposes
         </p>
       </div>
     </main>
   );
 }
-
-// ── Loading skeleton ──────────────────────────────────────────────────────────
-
-function GeneratingSkeleton({ scenarioKey }: { scenarioKey: string }) {
-  const s = SCENARIOS_UI.find((x) => x.key === scenarioKey);
-  return (
-    <div className="overflow-hidden rounded-3xl border border-border/40 bg-card p-5 shadow-[var(--shadow-card)]">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 animate-pulse items-center justify-center rounded-xl bg-muted text-xl">
-            {s?.emoji ?? "✨"}
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-3 w-28 animate-pulse rounded-full bg-muted" />
-            <div className="h-2.5 w-20 animate-pulse rounded-full bg-muted/60" />
-          </div>
-        </div>
-        <div className="h-8 w-14 animate-pulse rounded-xl bg-muted" />
-      </div>
-      <div className="mt-5 space-y-2.5">
-        <div className="h-5 w-full animate-pulse rounded-full bg-muted" />
-        <div className="h-5 w-4/5 animate-pulse rounded-full bg-muted" />
-        <div className="h-3.5 w-3/5 animate-pulse rounded-full bg-muted/60" />
-      </div>
-      <div className="mt-4 h-10 animate-pulse rounded-2xl bg-muted" />
-      <div className="mt-3 h-8 animate-pulse rounded-2xl bg-muted/60" />
-      <div className="mt-4 flex items-center gap-2">
-        <Zap className="h-3 w-3 animate-bounce text-muted-foreground" />
-        <span className="text-[11px] text-muted-foreground">
-          Claude is crafting your offer based on {s?.desc ?? "current context"}…
-        </span>
-      </div>
-    </div>
-  );
-}
-
-// ── Offer card ────────────────────────────────────────────────────────────────
 
 function useCountdown(seconds: number, key: string) {
   const [remaining, setRemaining] = useState(seconds);
@@ -559,11 +433,13 @@ function OfferCard({
         </div>
         <div className={`text-right ${offer.accent}`}>
           <div className="text-2xl font-extrabold leading-none">−{offer.discount}%</div>
-          <div className="text-[10px] uppercase tracking-widest opacity-70">today only</div>
+          <div className="text-[10px] uppercase tracking-widest opacity-70">
+            today only
+          </div>
         </div>
       </div>
 
-      <h2 className="mt-4 text-[21px] font-bold leading-[1.15] tracking-tight text-foreground">
+      <h2 className="mt-4 text-[22px] font-bold leading-[1.15] tracking-tight text-foreground">
         {offer.headline}
       </h2>
       <p className="mt-1.5 text-[13px] text-foreground/70">{offer.subline}</p>
@@ -590,8 +466,12 @@ function OfferCard({
 
       <div className="mt-4 flex items-center justify-between text-[12px] text-foreground/70">
         <span>
-          <span className="line-through opacity-60">€{offer.originalPrice.toFixed(2)}</span>{" "}
-          <span className="font-semibold text-foreground">€{offer.finalPrice.toFixed(2)}</span>
+          <span className="line-through opacity-60">
+            €{offer.originalPrice.toFixed(2)}
+          </span>{" "}
+          <span className="font-semibold text-foreground">
+            €{offer.finalPrice.toFixed(2)}
+          </span>
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-foreground/60">
           <Sparkles className="h-2.5 w-2.5" />
@@ -608,7 +488,7 @@ function OfferCard({
         </button>
         <button
           onClick={onDismiss}
-          aria-label="Get new offer"
+          aria-label="Dismiss"
           className="flex items-center justify-center rounded-2xl bg-white/60 px-4 text-foreground/70 backdrop-blur transition-colors hover:bg-white/80"
         >
           <X className="h-5 w-5" />
@@ -617,8 +497,6 @@ function OfferCard({
     </div>
   );
 }
-
-// ── Redeem card ───────────────────────────────────────────────────────────────
 
 function RedeemCard({
   offer,
@@ -629,8 +507,7 @@ function RedeemCard({
   onScan: () => void;
   onBack: () => void;
 }) {
-  const code = offer.token || `CW-${offer.id.slice(0, 8).toUpperCase()}`;
-
+  const code = `CW-${offer.id.toUpperCase()}-${Math.floor(Math.random() * 9000) + 1000}`;
   return (
     <div
       className={`overflow-hidden rounded-3xl bg-gradient-to-br ${offer.gradient} p-5 shadow-[var(--shadow-card)] ring-1 ring-white/40`}
@@ -656,18 +533,26 @@ function RedeemCard({
       </div>
 
       <div className="mt-4 flex flex-col items-center">
-        <QrCode value={code} size={200} />
-        <div className="mt-3 font-mono text-[11px] tracking-widest text-foreground/70">{code}</div>
+        <QrCode value={code} size={210} />
+        <div className="mt-3 font-mono text-[11px] tracking-widest text-foreground/70">
+          {code}
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl bg-white/55 p-3.5 text-center backdrop-blur">
-        <div className="text-[11px] uppercase tracking-widest text-foreground/60">Show this to staff</div>
-        <div className="mt-1 text-[14px] font-semibold leading-snug">{offer.headline}</div>
+        <div className="text-[11px] uppercase tracking-widest text-foreground/60">
+          Show this to staff
+        </div>
+        <div className="mt-1 text-[14px] font-semibold leading-snug">
+          {offer.headline}
+        </div>
         <div className="mt-1 text-[12px] text-foreground/70">
           You pay €{offer.finalPrice.toFixed(2)} ·{" "}
-          <span className="text-success">save €{(offer.originalPrice - offer.finalPrice).toFixed(2)}</span>
+          <span className="text-success">
+            save €{(offer.originalPrice - offer.finalPrice).toFixed(2)}
+          </span>
         </div>
-        {offer.bonusItem && (
+        {offer.bonusActive && offer.bonusItem && (
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.93_0.09_150)] px-2.5 py-1 text-[11px] font-semibold text-[oklch(0.35_0.13_150)]">
             <Gift className="h-3 w-3" />
             Includes {offer.bonusItem}
@@ -686,9 +571,13 @@ function RedeemCard({
   );
 }
 
-// ── Success card ──────────────────────────────────────────────────────────────
-
-function SuccessCard({ offer, onBack }: { offer: ActiveOffer; onBack: () => void }) {
+function SuccessCard({
+  offer,
+  onBack,
+}: {
+  offer: ActiveOffer;
+  onBack: () => void;
+}) {
   return (
     <div className="overflow-hidden rounded-3xl bg-card p-6 text-center shadow-[var(--shadow-card)]">
       <motion.div
@@ -706,7 +595,7 @@ function SuccessCard({ offer, onBack }: { offer: ActiveOffer; onBack: () => void
       <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
         Saved €{(offer.originalPrice - offer.finalPrice).toFixed(2)}
       </div>
-      {offer.bonusItem && (
+      {offer.bonusActive && offer.bonusItem && (
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[oklch(0.93_0.09_150)] px-3 py-1 text-[12px] font-semibold text-[oklch(0.35_0.13_150)]">
           <Gift className="h-3 w-3" />
           Bonus: {offer.bonusItem}
@@ -714,7 +603,6 @@ function SuccessCard({ offer, onBack }: { offer: ActiveOffer; onBack: () => void
       )}
       <p className="mt-4 text-xs text-muted-foreground">
         Payment of €{offer.finalPrice.toFixed(2)} processed via Payone (simulated).
-        Redemption recorded in merchant dashboard.
       </p>
       <button
         onClick={onBack}
@@ -726,25 +614,3 @@ function SuccessCard({ offer, onBack }: { offer: ActiveOffer; onBack: () => void
     </div>
   );
 }
-
-// ── Static fallback (shown when backend is offline) ────────────────────────
-
-const STATIC_FALLBACK: ActiveOffer = {
-  id: "fallback-1",
-  merchant: "Café Königsbau",
-  category: "Café · Specialty Coffee",
-  distanceM: 80,
-  headline: "Cold outside? Your cappuccino is waiting 80 m away.",
-  subline: "House-roasted beans, oat milk on the house.",
-  discount: 30,
-  originalPrice: 4.2,
-  finalPrice: 2.94,
-  reasoning: "Demo mode: backend offline. Start the FastAPI server to enable live AI offers.",
-  validSeconds: 900,
-  gradient: "from-[oklch(0.92_0.04_240)] via-[oklch(0.95_0.03_260)] to-[oklch(0.97_0.02_280)]",
-  accent: "text-[oklch(0.4_0.12_250)]",
-  emoji: "☕",
-  bonusItem: "free oat-milk shot",
-  token: "CW-DEMO0001",
-  versionKey: "fallback-1",
-};
