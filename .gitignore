@@ -35,4 +35,4 @@ dist-ssr
 .env/
 __pycache__/
 
-application/app/build.vite/
+application/app/build
