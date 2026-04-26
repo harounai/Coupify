@@ -65,6 +65,19 @@ class AuthViewModel(
         }
     }
 
+    fun registerCompany(email: String, password: String, displayName: String, businessId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val result = authRepository.registerCompany(email, password, displayName, businessId)
+            result.onSuccess {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+            result.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Company registration failed") }
+            }
+        }
+    }
+
     fun completeOnboarding(preferences: UserPreferencesDto) {
         val user = _uiState.value.currentUser ?: return
         val token = user.token ?: return
@@ -88,6 +101,19 @@ class AuthViewModel(
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
+        }
+    }
+
+    fun enterMerchantMode(businessId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val result = authRepository.enterMerchantMode(businessId)
+            result.onSuccess {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+            result.onFailure { e ->
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to enter merchant mode") }
+            }
         }
     }
 }

@@ -8,9 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException, Header, status
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
-from app.models import AuthSession, Streak, User
+from app.models import AuthSession, Business, Streak, User
 from app.schemas import AuthResponse, LoginRequest, SignupRequest, UserProfile
 from app.services.security import create_access_token, decode_access_token, hash_password, verify_password
+from app.services.ai_notifier import schedule_login_notification
+from app.db import SessionLocal
+import asyncio
+import threading
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,11 +32,25 @@ def register(payload: SignupRequest, db: Session = Depends(get_db)) -> AuthRespo
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    role = (payload.role or "USER").upper()
+    if role not in ("USER", "COMPANY"):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="invalid_role")
+    company_business_id = None
+    if role == "COMPANY":
+        if not payload.business_id:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="business_id_required_for_company")
+        biz = db.get(Business, payload.business_id)
+        if not biz:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="business_not_found")
+        company_business_id = biz.id
+
     user = User(
         id=f"user_{uuid.uuid4().hex}",
         email=payload.email.lower(),
         password_hash=hash_password(payload.password),
         display_name=payload.display_name,
+        role=role,
+        company_business_id=company_business_id,
         interests_csv="",
         exploration_preference=50,
         survey_json="{}",
@@ -44,12 +62,20 @@ def register(payload: SignupRequest, db: Session = Depends(get_db)) -> AuthRespo
     db.refresh(user)
 
     token = create_access_token(user_id=user.id, session_id=session_id)
+    # Schedule a notification ~1 minute after signup/login.
+    # This endpoint is sync (runs in a threadpool), so we start a daemon thread and run an event loop there.
+    threading.Thread(
+        target=lambda: asyncio.run(schedule_login_notification(session_factory=SessionLocal, user_id=user.id, delay_seconds=60)),
+        daemon=True,
+    ).start()
     return AuthResponse(
         access_token=token,
         user=UserProfile(
             id=user.id,
             display_name=user.display_name,
             email=user.email,
+            role=(user.role or "USER"),  # type: ignore[arg-type]
+            business_id=user.company_business_id,
             interests=[],
             exploration_preference=user.exploration_preference,
             has_completed_onboarding=bool(user.has_completed_onboarding),
@@ -67,12 +93,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     session_id = _new_session(db, user.id)
     db.commit()
     token = create_access_token(user_id=user.id, session_id=session_id)
+    threading.Thread(
+        target=lambda: asyncio.run(schedule_login_notification(session_factory=SessionLocal, user_id=user.id, delay_seconds=60)),
+        daemon=True,
+    ).start()
     return AuthResponse(
         access_token=token,
         user=UserProfile(
             id=user.id,
             display_name=user.display_name,
             email=user.email,
+            role=(user.role or "USER"),  # type: ignore[arg-type]
+            business_id=user.company_business_id,
             interests=interests,
             exploration_preference=user.exploration_preference,
             has_completed_onboarding=bool(user.has_completed_onboarding),
@@ -97,6 +129,8 @@ def me(db: Session = Depends(get_db), authorization: str | None = Header(default
         id=user.id,
         display_name=user.display_name,
         email=user.email,
+        role=(user.role or "USER"),  # type: ignore[arg-type]
+        business_id=user.company_business_id,
         interests=interests,
         exploration_preference=user.exploration_preference,
         has_completed_onboarding=bool(user.has_completed_onboarding),

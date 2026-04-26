@@ -14,6 +14,8 @@ class SignupRequest(BaseModel):
     email: str = Field(min_length=3)
     password: str = Field(min_length=6)
     display_name: str = Field(min_length=1)
+    role: Literal["USER", "COMPANY"] = "USER"
+    business_id: str | None = None  # required if role == COMPANY
 
 
 class LoginRequest(BaseModel):
@@ -31,6 +33,8 @@ class UserProfile(BaseModel):
     id: str
     display_name: str
     email: str | None = None
+    role: Literal["USER", "COMPANY"] = "USER"
+    business_id: str | None = None
     interests: list[str] = Field(default_factory=list)
     exploration_preference: int = Field(ge=0, le=100)
     has_completed_onboarding: bool = False
@@ -117,6 +121,51 @@ class HomeFeedResponse(BaseModel):
     offer_of_the_day: CouponInstanceOut | None = None
     new_in_town: list[BusinessOut] = Field(default_factory=list)
     notification_inbox: list[dict] = Field(default_factory=list)
+
+
+class MerchantRuleIn(BaseModel):
+    max_discount_percent: int = Field(default=20, ge=0, le=100)
+    min_discount_percent: int = Field(default=5, ge=0, le=100)
+    quiet_hours_start: int | None = Field(default=None, ge=0, le=23)
+    quiet_hours_end: int | None = Field(default=None, ge=0, le=23)
+    goal: str = Field(default="FILL_QUIET_HOURS", min_length=1)
+    coupons_per_day: int = Field(default=50, ge=0, le=100000)
+    coupons_total: int = Field(default=1000, ge=0, le=1000000)
+    products: list[str] = Field(default_factory=list)
+    rules_json: dict = Field(default_factory=dict)
+
+
+class MerchantRuleOut(BaseModel):
+    business_id: str
+    max_discount_percent: int = Field(ge=0, le=100)
+    min_discount_percent: int = Field(ge=0, le=100)
+    quiet_hours_start: int | None = Field(default=None, ge=0, le=23)
+    quiet_hours_end: int | None = Field(default=None, ge=0, le=23)
+    goal: str
+    coupons_per_day: int
+    coupons_total: int
+    coupons_total_issued: int
+    products: list[str] = Field(default_factory=list)
+    rules_json: dict = Field(default_factory=dict)
+    updated_at: datetime
+
+
+class MerchantStatsOut(BaseModel):
+    business_id: str
+    day_key: str
+    impressions: int
+    accepts: int
+    declines: int
+    redemptions: int
+
+
+class MerchantBusinessOut(BaseModel):
+    id: str
+    name: str
+    category: str
+    lat: float
+    lon: float
+    image_url: str
 
 
 class AiDebugResponse(BaseModel):
