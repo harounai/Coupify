@@ -1,51 +1,80 @@
-# CITY WALLET MVP
+# 🎟 Coupify
 
-AI-powered city wallet prototype for real-time, context-aware local offers.
+> **Offers that read the room.** Real-time context meets generative AI — so merchants stop shouting the same deal into the void.
 
-This repository contains:
-- `backend/`: FastAPI context + offer + redemption API (Ollama-enabled)
-- `application/`: Android app (consumer + merchant experience)
+---
 
-## End-to-End Flow
+## The Problem
 
-1. User context is sent to backend (`weather`, `time`, `location`, `demand proxy`).
-2. Backend chooses best merchant rule for the current moment.
-3. Offer copy + widget tone are generated dynamically (via Ollama when available).
-4. User accepts and receives a dynamic tokenized QR payload.
-5. Merchant scan is simulated and validated by API.
-6. Merchant dashboard shows generated/accepted/redeemed metrics.
+Local merchants are still running promotions like it's 2005. Same discount, same message, every customer, every moment — rain or shine, busy or dead. Customers tune it out. Merchants wonder why nobody's biting.
 
-## Local Setup (Quick Start)
+The offer doesn't fit the moment. And the moment is everything.
 
-### 1) Start Ollama
+---
 
-```bash
-ollama serve
-ollama pull llama3.1:8b
+## The Solution
+
+Coupify pulls in live context — weather, time of day, location — and feeds it to an AI that writes a fresh, relevant offer on the spot. Merchants set the rules (what to push, max discount, quiet hours). The AI handles the creativity.
+
+A cold rainy morning gets a different offer than a sunny lunch hour. Every time. Automatically.
+
+> No templates. No copy-paste discounts. Just offers that actually make sense *right now.*
+
+---
+
+## What It Looks Like
+
+**🛍 For customers**
+A clean wallet UI showing a live, context-aware offer with a countdown timer. The deal expires — creating urgency — and a new one can be generated fresh.
+
+**📊 For merchants**
+A dashboard to define campaign rules, preview exactly what the AI will generate, and track what's working — acceptance rate, redemptions, revenue uplift, all updating in real time.
+
+**⚙️ Under the hood**
+
+```
+Live weather + time of day
+        ↓
+  Context snapshot built
+        ↓
+  AI generates offer copy       ← Claude (or local Ollama)
+        ↓
+ Served to customer wallet
+        ↓
+  Redeemed → analytics updated
 ```
 
-### 2) Start backend
+---
+
+## Quick Start
 
 ```bash
+# Backend
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+
+# Web frontend
+npm install && npm run dev
 ```
 
-Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+Add your `ANTHROPIC_API_KEY` to `backend/.env` to use Claude. No key? It falls back to Ollama locally, or a static offer if neither is available.
 
-### 3) Run Android app
+For Android: open `application/` in Android Studio and run on an emulator or device.
 
-Open `application/` in Android Studio and run the `app` module on an emulator.
+---
 
-The app is already configured to call backend at `http://10.0.2.2:8000/`.
+## Stack
 
-## Push Checklist
+| Layer | Technology |
+|-------|-----------|
+| Backend | FastAPI + Python |
+| AI | Claude (Anthropic) / Ollama local fallback |
+| Frontend (Web) | React + TypeScript + TailwindCSS |
+| Frontend (Mobile) | Kotlin + Jetpack Compose |
+| Weather | Open-Meteo API (free, no key needed) |
 
-- Backend boots and `/health` returns OK.
-- `POST /offers/generate` returns dynamic response.
-- Redemption flow works (`/redemptions/create` -> `/redemptions/validate`).
-- Android app can fetch/generate offers and show QR.
-- Merchant dashboard numbers update after redemption.
+---
+
+*Built for a hackathon. Extendable for the real world.*
